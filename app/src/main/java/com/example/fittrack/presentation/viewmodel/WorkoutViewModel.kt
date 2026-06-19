@@ -1,32 +1,37 @@
 package com.example.fittrack.presentation.viewmodel
 
 import androidx.lifecycle.ViewModel
-import com.example.fittrack.domain.model.Exercise
-import com.example.fittrack.domain.model.Workout
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import androidx.lifecycle.viewModelScope
+import com.example.fittrack.data.local.entity.WorkoutEntity
+import com.example.fittrack.data.repository.WorkoutRepository
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
-class WorkoutViewModel : ViewModel() {
+class WorkoutViewModel(
+    private val repository: WorkoutRepository
+) : ViewModel() {
 
-    private val _workouts = MutableStateFlow(
-        listOf(
-            Workout(
-                id = 1,
-                name = "Push Day",
-                duration = 45,
-                exercises = listOf(
-                    Exercise(
-                        name = "Bench Press",
-                        sets = 3,
-                        reps = 10,
-                        weight = 60
-                    )
-                )
-            )
+
+    val workouts = repository
+        .getWorkouts()
+        .stateIn(
+            scope = viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            emptyList()
         )
-    )
 
-    val workouts: StateFlow<List<Workout>> = _workouts
 
+    fun addWorkout(
+        workout: WorkoutEntity
+    ) {
+
+        viewModelScope.launch {
+
+            repository.insertWorkout(
+                workout
+            )
+
+        }
+    }
 }
-

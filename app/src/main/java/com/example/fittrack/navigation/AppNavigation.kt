@@ -13,9 +13,12 @@ import com.example.fittrack.presentation.screens.HomeScreen
 import com.example.fittrack.presentation.screens.WorkoutScreen
 import com.example.fittrack.presentation.screens.ProgressScreen
 import com.example.fittrack.presentation.screens.ProfileScreen
+import com.example.fittrack.presentation.viewmodel.WorkoutViewModel
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    workoutViewModel: WorkoutViewModel
+) {
 
     val navController = rememberNavController()
 
@@ -45,7 +48,9 @@ fun AppNavigation() {
                 composable(
                     route = Routes.Workout.route
                 ) {
-                    WorkoutScreen()
+                    WorkoutScreen(
+                        viewModel = workoutViewModel
+                    )
                 }
 
                 composable(
