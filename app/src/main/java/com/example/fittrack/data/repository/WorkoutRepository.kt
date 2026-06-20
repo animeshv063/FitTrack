@@ -3,6 +3,7 @@ package com.example.fittrack.data.repository
 import com.example.fittrack.data.local.dao.WorkoutDao
 import com.example.fittrack.data.local.entity.WorkoutEntity
 import kotlinx.coroutines.flow.Flow
+import com.example.fittrack.data.local.entity.ExerciseEntity
 
 class WorkoutRepository(
     private val workoutDao: WorkoutDao
@@ -24,6 +25,38 @@ class WorkoutRepository(
         id: Int
     ) {
         workoutDao.deleteWorkout(id)
+    }
+
+    fun getExercises(
+        workoutId: Int
+    ): Flow<List<ExerciseEntity>> {
+
+        return workoutDao.getExercises(
+            workoutId
+        )
+
+    }
+
+
+    suspend fun insertExercise(
+        exercise: ExerciseEntity
+    ) {
+
+        workoutDao.insertExercise(
+            exercise
+        )
+
+    }
+
+
+    suspend fun deleteExercise(
+        exercise: ExerciseEntity
+    ) {
+
+        workoutDao.deleteExercise(
+            exercise
+        )
+
     }
 
 }

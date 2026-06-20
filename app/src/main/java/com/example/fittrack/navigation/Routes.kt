@@ -4,12 +4,24 @@ sealed class Routes(
     val route: String
 ) {
 
-    object Home : Routes("home")
+    object Home : Routes(
+        "home"
+    )
 
-    object Workout : Routes("workout")
+    object Workout : Routes(
+        "workout"
+    )
 
-    object Progress : Routes("progress")
+    object Progress : Routes(
+        "progress"
+    )
 
-    object Profile : Routes("profile")
+    object Profile : Routes(
+        "profile"
+    )
+
+    object WorkoutDetail : Routes(
+        "workout_detail/{id}"
+    )
 }
 

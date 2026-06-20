@@ -10,19 +10,35 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.fittrack.presentation.theme.BackgroundDark
 import com.example.fittrack.presentation.theme.TextWhite
 import com.example.fittrack.presentation.viewmodel.WorkoutViewModel
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.navigation.NavController
+import com.example.fittrack.data.local.entity.WorkoutEntity
+import androidx.compose.foundation.clickable
 
 @Composable
 fun WorkoutScreen(
-    viewModel: WorkoutViewModel = viewModel()
+    viewModel: WorkoutViewModel,
+    navController: NavController
 ) {
 
     val workouts by viewModel
         .workouts
         .collectAsState()
+
+    var workoutName by remember {
+        mutableStateOf("")
+    }
+
+    var workoutDuration by remember {
+        mutableStateOf("")
+    }
 
 
     Column(
@@ -42,11 +58,82 @@ fun WorkoutScreen(
             modifier = Modifier.height(20.dp)
         )
 
+        OutlinedTextField(
+            value = workoutName,
+
+            onValueChange = {
+                workoutName = it
+            },
+
+            label = {
+                Text(
+                    text = "Workout Name"
+                )
+            }
+        )
+
+
+        Spacer(
+            modifier = Modifier.height(10.dp)
+        )
+
+
+        OutlinedTextField(
+            value = workoutDuration,
+
+            onValueChange = {
+                workoutDuration = it
+            },
+
+            label = {
+                Text(
+                    text = "Duration"
+                )
+            }
+        )
+
+
+        Spacer(
+            modifier = Modifier.height(10.dp)
+        )
+
+
+        Button(
+            onClick = {
+                viewModel.addWorkout(
+                    WorkoutEntity(
+                        name = workoutName,
+                        duration = workoutDuration.toInt(),
+                        date = System.currentTimeMillis()
+                    )
+                )
+
+                workoutName = ""
+                workoutDuration = ""
+            }
+        ) {
+
+            Text(
+                text = "Add Workout"
+            )
+
+        }
+
+
+        Spacer(
+            modifier = Modifier.height(20.dp)
+        )
 
         workouts.forEach { workout ->
 
             Card(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        navController.navigate(
+                            "workout_detail/${workout.id}"
+                        )
+                    }
             ) {
 
                 Column(

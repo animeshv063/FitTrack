@@ -14,6 +14,9 @@ import com.example.fittrack.presentation.screens.WorkoutScreen
 import com.example.fittrack.presentation.screens.ProgressScreen
 import com.example.fittrack.presentation.screens.ProfileScreen
 import com.example.fittrack.presentation.viewmodel.WorkoutViewModel
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import com.example.fittrack.presentation.screens.WorkoutDetailScreen
 
 @Composable
 fun AppNavigation(
@@ -49,7 +52,9 @@ fun AppNavigation(
                     route = Routes.Workout.route
                 ) {
                     WorkoutScreen(
-                        viewModel = workoutViewModel
+                        viewModel = workoutViewModel,
+                        navController = navController
+
                     )
                 }
 
@@ -63,6 +68,31 @@ fun AppNavigation(
                     route = Routes.Profile.route
                 ) {
                     ProfileScreen()
+                }
+                composable(
+                    route = Routes.WorkoutDetail.route,
+
+                    arguments = listOf(
+                        navArgument("id") {
+                            type = NavType.IntType
+                        }
+                    )
+
+                ) { backStackEntry ->
+
+
+                    val workoutId =
+                        backStackEntry
+                            .arguments
+                            ?.getInt("id")
+                            ?: 0
+
+
+                    WorkoutDetailScreen(
+                        workoutId = workoutId,
+                        viewModel = workoutViewModel
+                    )
+
                 }
             }
         }

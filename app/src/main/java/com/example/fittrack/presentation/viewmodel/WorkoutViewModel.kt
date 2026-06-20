@@ -7,6 +7,8 @@ import com.example.fittrack.data.repository.WorkoutRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.example.fittrack.data.local.entity.ExerciseEntity
+
 
 class WorkoutViewModel(
     private val repository: WorkoutRepository
@@ -33,5 +35,50 @@ class WorkoutViewModel(
             )
 
         }
+    }
+    fun deleteWorkout(
+        workout: WorkoutEntity
+    ){
+        viewModelScope.launch {
+            repository.deleteWorkout(
+                workout.id
+            )
+        }
+    }
+    fun getExercises(
+        workoutId: Int
+    ) =
+        repository.getExercises(
+            workoutId
+        )
+
+
+    fun addExercise(
+        exercise: ExerciseEntity
+    ) {
+
+        viewModelScope.launch {
+
+            repository.insertExercise(
+                exercise
+            )
+
+        }
+
+    }
+
+
+    fun deleteExercise(
+        exercise: ExerciseEntity
+    ) {
+
+        viewModelScope.launch {
+
+            repository.deleteExercise(
+                exercise
+            )
+
+        }
+
     }
 }
