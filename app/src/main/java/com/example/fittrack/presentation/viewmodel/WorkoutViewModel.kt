@@ -8,12 +8,15 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.example.fittrack.data.local.entity.ExerciseEntity
+import com.example.fittrack.data.sensor.StepCounterManager
 
 
 class WorkoutViewModel(
-    private val repository: WorkoutRepository
+    private val repository: WorkoutRepository,
+    private val stepCounterManager: StepCounterManager
 ) : ViewModel() {
 
+    val steps = stepCounterManager.steps
 
     val workouts = repository
         .getWorkouts()
@@ -22,7 +25,14 @@ class WorkoutViewModel(
             SharingStarted.WhileSubscribed(5000),
             emptyList()
         )
-
+    val allExercises =
+        repository
+            .getAllExercises()
+            .stateIn(
+                scope = viewModelScope,
+                SharingStarted.WhileSubscribed(5000),
+                emptyList()
+            )
 
     fun addWorkout(
         workout: WorkoutEntity
@@ -80,5 +90,8 @@ class WorkoutViewModel(
 
         }
 
+    }
+    fun startStepCounter() {
+        stepCounterManager.start()
     }
 }

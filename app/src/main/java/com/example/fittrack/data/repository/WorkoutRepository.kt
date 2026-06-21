@@ -59,5 +59,8 @@ class WorkoutRepository(
 
     }
 
+    fun getAllExercises() =
+        workoutDao.getAllExercises()
+
 }
 

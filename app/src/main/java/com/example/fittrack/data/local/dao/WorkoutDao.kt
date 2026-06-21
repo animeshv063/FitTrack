@@ -42,5 +42,11 @@ interface WorkoutDao {
     suspend fun deleteExercise(
         exercise: ExerciseEntity
     )
+
+    @Query(
+        "SELECT * FROM exercises"
+    )
+    fun getAllExercises():
+            Flow<List<ExerciseEntity>>
 }
 

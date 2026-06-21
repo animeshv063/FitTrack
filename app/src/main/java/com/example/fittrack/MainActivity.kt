@@ -11,6 +11,7 @@ import com.example.fittrack.navigation.AppNavigation
 import com.example.fittrack.presentation.theme.FitTrackTheme
 import com.example.fittrack.presentation.viewmodel.WorkoutViewModel
 import com.example.fittrack.presentation.viewmodel.WorkoutViewModelFactory
+import com.example.fittrack.data.sensor.StepCounterManager
 
 class MainActivity : ComponentActivity() {
 
@@ -24,12 +25,17 @@ class MainActivity : ComponentActivity() {
             this
         )
 
+        val stepCounterManager = StepCounterManager(
+            this
+        )
+
         val repository = WorkoutRepository(
             database.workoutDao()
         )
 
         val factory = WorkoutViewModelFactory(
-            repository
+            repository,
+            stepCounterManager
         )
 
 

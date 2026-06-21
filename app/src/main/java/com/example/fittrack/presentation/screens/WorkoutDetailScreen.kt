@@ -8,6 +8,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.fittrack.data.local.entity.ExerciseEntity
 import com.example.fittrack.presentation.viewmodel.WorkoutViewModel
+import androidx.compose.material3.Checkbox
+import kotlinx.coroutines.delay
+import androidx.compose.ui.platform.LocalContext
+import com.example.fittrack.data.notification.NotificationHelper
 
 
 @Composable
@@ -38,6 +42,55 @@ fun WorkoutDetailScreen(
 
     var weight by remember {
         mutableStateOf("")
+    }
+
+    var workoutStarted by remember {
+        mutableStateOf(false)
+    }
+
+    var restTime by remember {
+        mutableStateOf(0)
+    }
+
+
+    var timerRunning by remember {
+        mutableStateOf(false)
+    }
+
+    val context = LocalContext.current
+
+
+    val notificationHelper = remember {
+        NotificationHelper(
+            context
+        )
+    }
+
+    LaunchedEffect(
+        timerRunning
+    ) {
+
+        while (
+            timerRunning &&
+            restTime > 0
+        ) {
+
+            delay(1000)
+
+            restTime--
+
+        }
+
+
+        if (restTime == 0 && timerRunning) {
+
+            timerRunning = false
+
+            notificationHelper
+                .showRestFinishedNotification()
+
+        }
+
     }
 
 
@@ -121,7 +174,32 @@ fun WorkoutDetailScreen(
 
         }
 
+        Button(
+            onClick = {
 
+                workoutStarted =
+                    !workoutStarted
+
+            }
+        ) {
+
+            Text(
+                text =
+                    if (workoutStarted)
+                        "Finish Workout"
+                    else
+                        "Start Workout"
+            )
+
+        }
+
+        if (timerRunning) {
+
+            Text(
+                text = "Rest: $restTime seconds"
+            )
+
+        }
 
         exercises.forEach { exercise ->
 
@@ -147,6 +225,50 @@ fun WorkoutDetailScreen(
                     Text(
                         "${exercise.weight} kg"
                     )
+                    if (workoutStarted) {
+
+
+                        repeat(
+                            exercise.sets
+                        ) { index ->
+
+
+                            var checked by remember {
+                                mutableStateOf(false)
+                            }
+
+
+                            Row {
+
+
+                                Checkbox(
+                                    checked = checked,
+
+                                    onCheckedChange = {
+
+                                        checked = it
+
+                                        if (it) {
+
+                                            restTime = 90
+
+                                            timerRunning = true
+
+                                        }
+
+                                    }
+                                )
+
+
+                                Text(
+                                    text = "Set ${index + 1} done"
+                                )
+
+                            }
+
+                        }
+
+                    }
 
                 }
 

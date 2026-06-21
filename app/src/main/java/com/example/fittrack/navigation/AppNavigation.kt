@@ -61,7 +61,9 @@ fun AppNavigation(
                 composable(
                     route = Routes.Progress.route
                 ) {
-                    ProgressScreen()
+                    ProgressScreen(
+                        viewModel = workoutViewModel
+                    )
                 }
 
                 composable(
