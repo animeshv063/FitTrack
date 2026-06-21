@@ -45,7 +45,10 @@ fun AppNavigation(
                 composable(
                     route = Routes.Home.route
                 ) {
-                    HomeScreen()
+                    HomeScreen(
+                        navController = navController,
+                        viewModel = workoutViewModel
+                    )
                 }
 
                 composable(
@@ -69,7 +72,9 @@ fun AppNavigation(
                 composable(
                     route = Routes.Profile.route
                 ) {
-                    ProfileScreen()
+                    ProfileScreen(
+                        viewModel = workoutViewModel
+                    )
                 }
                 composable(
                     route = Routes.WorkoutDetail.route,

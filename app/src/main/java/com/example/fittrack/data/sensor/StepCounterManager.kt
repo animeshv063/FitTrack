@@ -35,13 +35,21 @@ class StepCounterManager(
         _steps
 
 
+    private var baseSteps =
+        -1
+
+
     fun start() {
 
-        sensorManager.registerListener(
-            this,
-            stepSensor,
-            SensorManager.SENSOR_DELAY_UI
-        )
+        stepSensor?.let {
+
+            sensorManager.registerListener(
+                this,
+                it,
+                SensorManager.SENSOR_DELAY_UI
+            )
+
+        }
 
     }
 
@@ -52,8 +60,20 @@ class StepCounterManager(
 
         event?.let {
 
-            _steps.value =
+
+            val totalSteps =
                 it.values[0].toInt()
+
+
+            if (baseSteps == -1) {
+
+                baseSteps = totalSteps
+
+            }
+
+
+            _steps.value =
+                totalSteps - baseSteps
 
         }
 
@@ -64,6 +84,7 @@ class StepCounterManager(
         sensor: Sensor?,
         accuracy: Int
     ) {
+
 
     }
 

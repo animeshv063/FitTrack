@@ -12,24 +12,42 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.fittrack.presentation.components.ActivityCard
-import com.example.fittrack.presentation.components.PrimaryButton
-import com.example.fittrack.presentation.components.StatCard
-import com.example.fittrack.presentation.components.WorkoutCard
-import com.example.fittrack.presentation.theme.BackgroundDark
-import com.example.fittrack.presentation.theme.TextGray
-import com.example.fittrack.presentation.theme.TextWhite
+import androidx.navigation.NavController
+import com.example.fittrack.navigation.Routes
+import com.example.fittrack.presentation.components.*
+import com.example.fittrack.presentation.theme.*
+import com.example.fittrack.presentation.viewmodel.WorkoutViewModel
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    navController: NavController,
+    viewModel: WorkoutViewModel
+) {
+
+    val workouts by viewModel.workouts.collectAsState()
+
+    val steps by viewModel.steps.collectAsState()
+
+    val calories =
+        (steps * 0.04).toInt()
+
+    val latestWorkout =
+        workouts.lastOrNull()
+
 
     var visible by remember {
         mutableStateOf(false)
     }
 
+
     LaunchedEffect(Unit) {
+
         visible = true
+
+        viewModel.startStepCounter()
+
     }
+
 
     AnimatedVisibility(
         visible = visible,
@@ -52,42 +70,52 @@ fun HomeScreen() {
 
             Text(
                 text = "Ready for today's workout?",
-                color = TextGray,
-                fontSize = 16.sp
+                color = TextGray
             )
 
+
             Spacer(
-                modifier = Modifier.height(30.dp)
+                Modifier.height(30.dp)
             )
+
 
             Row {
 
                 StatCard(
                     title = "Workouts",
-                    value = "12",
+                    value = workouts.size.toString(),
                     modifier = Modifier.weight(1f)
                 )
 
+
                 Spacer(
-                    modifier = Modifier.width(16.dp)
+                    Modifier.width(16.dp)
                 )
+
 
                 StatCard(
                     title = "Calories",
-                    value = "950",
+                    value = calories.toString(),
                     modifier = Modifier.weight(1f)
                 )
             }
 
-            Spacer(
-                modifier = Modifier.height(24.dp)
-            )
-
-            ActivityCard()
 
             Spacer(
-                modifier = Modifier.height(24.dp)
+                Modifier.height(24.dp)
             )
+
+
+            ActivityCard(
+                steps = steps,
+                calories = calories
+            )
+
+
+            Spacer(
+                Modifier.height(24.dp)
+            )
+
 
             Text(
                 text = "Today's Workout",
@@ -95,22 +123,39 @@ fun HomeScreen() {
                 fontSize = 20.sp
             )
 
-            Spacer(
-                modifier = Modifier.height(12.dp)
-            )
-
-            WorkoutCard()
 
             Spacer(
-                modifier = Modifier.height(24.dp)
+                Modifier.height(12.dp)
             )
+
+
+            WorkoutCard(
+                name =
+                    latestWorkout?.name
+                        ?: "No Workout",
+
+                duration =
+                    latestWorkout?.duration
+                        ?: 0
+            )
+
+
+            Spacer(
+                Modifier.height(24.dp)
+            )
+
 
             PrimaryButton(
                 text = "Start Workout",
                 onClick = {
 
+                    navController.navigate(
+                        Routes.Workout.route
+                    )
+
                 }
             )
+
         }
     }
 }
