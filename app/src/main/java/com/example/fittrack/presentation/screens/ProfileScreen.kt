@@ -66,6 +66,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -567,6 +568,9 @@ fun ProfileScreen(
     // WhatsApp-Style Circular Photo Crop Selector Modal
     if (showCircularCropDialog && tempPhotoUri != null) {
         Dialog(onDismissRequest = { showCircularCropDialog = false }) {
+            val density = LocalDensity.current
+            val cropContainerSizePx = with(density) { 240.dp.toPx() }
+
             var scale by remember { mutableStateOf(1f) }
             var offset by remember { mutableStateOf(Offset.Zero) }
 
@@ -702,7 +706,13 @@ fun ProfileScreen(
                             .background(TextWhite, RoundedCornerShape(14.dp))
                             .clickable {
                                 tempPhotoUri?.let { uri ->
-                                    val croppedUri = saveCroppedProfileImage(context, uri, scale, offset) ?: uri
+                                    val croppedUri = saveCroppedProfileImage(
+                                        context = context,
+                                        imageUri = uri,
+                                        scale = scale,
+                                        offset = offset,
+                                        containerSizePx = cropContainerSizePx
+                                    ) ?: uri
                                     viewModel.saveUserProfile(
                                         currentProfile.copy(profileImageUri = croppedUri.toString())
                                     )
@@ -1006,40 +1016,82 @@ private fun saveCroppedProfileImage(
     imageUri: Uri,
     scale: Float,
     offset: Offset,
-    containerSizePx: Float = 240f
+    containerSizePx: Float
 ): Uri? {
     return try {
         val inputStream = context.contentResolver.openInputStream(imageUri) ?: return null
         val originalBitmap = android.graphics.BitmapFactory.decodeStream(inputStream) ?: return null
+        inputStream.close()
 
-        val outputSize = 400
-        val croppedBitmap = android.graphics.Bitmap.createBitmap(outputSize, outputSize, android.graphics.Bitmap.Config.ARGB_8888)
-        val canvas = android.graphics.Canvas(croppedBitmap)
+        val containerSize = containerSizePx.toInt().coerceAtLeast(1)
+        val circleRadius = containerSize * 0.45f
+        val circleDiameter = (circleRadius * 2f).toInt().coerceAtLeast(1)
 
         val srcW = originalBitmap.width.toFloat()
         val srcH = originalBitmap.height.toFloat()
 
-        val baseScale = Math.max(outputSize / srcW, outputSize / srcH)
-        val totalScale = baseScale * scale
+        val paint = android.graphics.Paint(
+            android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.FILTER_BITMAP_FLAG
+        )
 
-        val normalizedDx = (offset.x / containerSizePx) * outputSize
-        val normalizedDy = (offset.y / containerSizePx) * outputSize
+        // Step 1: match ContentScale.Fit inside the crop viewport
+        val fittedBitmap = android.graphics.Bitmap.createBitmap(
+            containerSize,
+            containerSize,
+            android.graphics.Bitmap.Config.ARGB_8888
+        )
+        val fittedCanvas = android.graphics.Canvas(fittedBitmap)
+        fittedCanvas.drawColor(android.graphics.Color.BLACK)
 
-        val tx = (outputSize - srcW * totalScale) / 2f + normalizedDx
-        val ty = (outputSize - srcH * totalScale) / 2f + normalizedDy
+        val fitScale = minOf(containerSize / srcW, containerSize / srcH)
+        val fitMatrix = android.graphics.Matrix().apply {
+            postScale(fitScale, fitScale)
+            postTranslate(
+                (containerSize - srcW * fitScale) / 2f,
+                (containerSize - srcH * fitScale) / 2f
+            )
+        }
+        fittedCanvas.drawBitmap(originalBitmap, fitMatrix, paint)
 
-        val matrix = android.graphics.Matrix()
-        matrix.postScale(totalScale, totalScale)
-        matrix.postTranslate(tx, ty)
+        // Step 2: match graphicsLayer zoom/pan (scale around viewport center, then translate)
+        val viewportBitmap = android.graphics.Bitmap.createBitmap(
+            containerSize,
+            containerSize,
+            android.graphics.Bitmap.Config.ARGB_8888
+        )
+        val viewportCanvas = android.graphics.Canvas(viewportBitmap)
+        val center = containerSize / 2f
+        val viewMatrix = android.graphics.Matrix().apply {
+            postScale(scale, scale, center, center)
+            postTranslate(offset.x, offset.y)
+        }
+        viewportCanvas.drawBitmap(fittedBitmap, viewMatrix, paint)
 
-        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.FILTER_BITMAP_FLAG)
-        canvas.drawBitmap(originalBitmap, matrix, paint)
+        // Step 3: crop exactly what sits inside the circular stencil
+        val cropLeft = (center - circleRadius).toInt().coerceIn(0, containerSize - circleDiameter)
+        val cropTop = (center - circleRadius).toInt().coerceIn(0, containerSize - circleDiameter)
+        val squareCrop = android.graphics.Bitmap.createBitmap(
+            viewportBitmap,
+            cropLeft,
+            cropTop,
+            circleDiameter,
+            circleDiameter
+        )
 
-        val avatarFile = java.io.File(context.filesDir, "cropped_avatar.jpg")
+        val outputSize = 400
+        val outputBitmap = android.graphics.Bitmap.createScaledBitmap(squareCrop, outputSize, outputSize, true)
+
+        fittedBitmap.recycle()
+        viewportBitmap.recycle()
+        squareCrop.recycle()
+        originalBitmap.recycle()
+
+        val avatarFile = java.io.File(context.filesDir, "cropped_avatar_${System.currentTimeMillis()}.jpg")
         val outputStream = java.io.FileOutputStream(avatarFile)
-        croppedBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, outputStream)
+        outputBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, outputStream)
         outputStream.flush()
         outputStream.close()
+        outputBitmap.recycle()
 
         Uri.fromFile(avatarFile)
     } catch (e: Exception) {

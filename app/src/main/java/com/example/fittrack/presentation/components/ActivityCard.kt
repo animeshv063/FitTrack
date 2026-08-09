@@ -63,10 +63,7 @@ fun ActivityCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f, fill = false)
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
                         .size(38.dp)
@@ -97,23 +94,6 @@ fun ActivityCard(
                         maxLines = 1
                     )
                 }
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Box(
-                modifier = Modifier
-                    .background(CardDarkElevated, RoundedCornerShape(12.dp))
-                    .border(1.dp, CardBorderActive, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = "${(animatedProgress * 100).toInt()}% Goal",
-                    color = TextWhite,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
             }
         }
 
@@ -157,6 +137,22 @@ fun ActivityCard(
         }
 
         Spacer(modifier = Modifier.height(12.dp))
+
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "${(animatedProgress * 100).toInt()}% Goal",
+                color = TextWhite,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         LinearProgressIndicator(
             progress = { animatedProgress },
