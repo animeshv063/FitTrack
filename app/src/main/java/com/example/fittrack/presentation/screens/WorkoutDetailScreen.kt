@@ -485,7 +485,12 @@ fun WorkoutDetailScreen(
                             .padding(16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(text = "REST COUNTDOWN (ALARM AT 00:00)", color = TextGray, fontSize = 11.sp, letterSpacing = 1.sp)
+                        Text(
+                            text = "REST COUNTDOWN (WILL RING AT ${formatAlarmClockTime(context, restTime)})",
+                            color = TextGray,
+                            fontSize = 11.sp,
+                            letterSpacing = 1.sp
+                        )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(text = formatTime(restTime), color = PrimaryGreen, fontSize = 38.sp, fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(8.dp))
@@ -862,6 +867,12 @@ private fun formatTime(seconds: Int): String {
     val minutes = seconds / 60
     val rem = seconds % 60
     return String.format("%02d:%02d", minutes, rem)
+}
+
+private fun formatAlarmClockTime(context: android.content.Context, remainingSeconds: Int): String {
+    val calendar = java.util.Calendar.getInstance()
+    calendar.add(java.util.Calendar.SECOND, remainingSeconds)
+    return android.text.format.DateFormat.getTimeFormat(context).format(calendar.time)
 }
 
 private fun formatStopwatch(seconds: Int): String {
