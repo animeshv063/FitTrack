@@ -1,16 +1,29 @@
 package com.example.fittrack.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
-    tableName = "exercises"
+    tableName = "exercises",
+
+    foreignKeys = [
+        ForeignKey(
+            entity = WorkoutEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["workoutId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+
+    indices = [
+        Index(value = ["workoutId"])
+    ]
 )
 data class ExerciseEntity(
 
-    @PrimaryKey(
-        autoGenerate = true
-    )
+    @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
 
     val workoutId: Int,
@@ -21,5 +34,7 @@ data class ExerciseEntity(
 
     val reps: Int,
 
-    val weight: Int
+    val weight: Int,
+
+    val completedSets: Int = 0
 )

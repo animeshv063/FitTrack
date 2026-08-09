@@ -13,33 +13,37 @@ import com.example.fittrack.data.local.entity.WorkoutEntity
         WorkoutEntity::class,
         ExerciseEntity::class
     ],
-    version = 1
+    version = 2,
+    exportSchema = false
 )
 abstract class FitTrackDatabase : RoomDatabase() {
 
-
     abstract fun workoutDao(): WorkoutDao
-
 
     companion object {
 
+        @Volatile
         private var INSTANCE: FitTrackDatabase? = null
-
 
         fun getDatabase(
             context: Context
         ): FitTrackDatabase {
 
-            return INSTANCE ?: Room.databaseBuilder(
-                context,
-                FitTrackDatabase::class.java,
-                "fittrack_database"
-            ).build()
-                .also {
+            return INSTANCE ?: synchronized(this) {
 
-                    INSTANCE = it
+                val instance =
+                    Room.databaseBuilder(
+                        context.applicationContext,
+                        FitTrackDatabase::class.java,
+                        "fittrack_database"
+                    )
+                        .fallbackToDestructiveMigration()
+                        .build()
 
-                }
+                INSTANCE = instance
+
+                instance
+            }
         }
     }
 }
