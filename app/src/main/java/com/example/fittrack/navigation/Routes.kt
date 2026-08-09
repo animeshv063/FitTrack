@@ -16,6 +16,10 @@ sealed class Routes(
         "progress"
     )
 
+    object Anatomy : Routes(
+        "anatomy"
+    )
+
     object Profile : Routes(
         "profile"
     )
@@ -24,4 +28,3 @@ sealed class Routes(
         "workout_detail/{id}"
     )
 }
-

@@ -6,14 +6,22 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.fittrack.data.local.dao.WorkoutDao
 import com.example.fittrack.data.local.entity.ExerciseEntity
+import com.example.fittrack.data.local.entity.GoalEntity
+import com.example.fittrack.data.local.entity.PersonalRecordEntity
+import com.example.fittrack.data.local.entity.UserProfileEntity
+import com.example.fittrack.data.local.entity.WaterLogEntity
 import com.example.fittrack.data.local.entity.WorkoutEntity
 
 @Database(
     entities = [
         WorkoutEntity::class,
-        ExerciseEntity::class
+        ExerciseEntity::class,
+        GoalEntity::class,
+        WaterLogEntity::class,
+        PersonalRecordEntity::class,
+        UserProfileEntity::class
     ],
-    version = 2,
+    version = 5,
     exportSchema = false
 )
 abstract class FitTrackDatabase : RoomDatabase() {
