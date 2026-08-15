@@ -351,14 +351,18 @@ fun WorkoutScreen(
                                             color = catColor,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
-                                            letterSpacing = 1.sp
+                                            letterSpacing = 1.sp,
+                                            maxLines = 1,
+                                            softWrap = false
                                         )
                                     }
                                     Text(
                                         text = "⏱ ${template.durationMins} mins",
                                         color = TextSilver,
                                         fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
                                 }
 
@@ -564,7 +568,10 @@ fun WorkoutScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f, fill = false)
+                            ) {
                                 Box(
                                     modifier = Modifier
                                         .background(Color(0xFF00FFA3).copy(alpha = 0.14f), RoundedCornerShape(8.dp))
@@ -576,7 +583,9 @@ fun WorkoutScreen(
                                         color = Color(0xFF00FFA3),
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        letterSpacing = 1.sp
+                                        letterSpacing = 1.sp,
+                                        maxLines = 1,
+                                        softWrap = false
                                     )
                                 }
 
@@ -592,18 +601,24 @@ fun WorkoutScreen(
                                             text = "COMPLETED",
                                             color = Color(0xFF10B981),
                                             fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            softWrap = false
                                         )
                                     }
                                 }
                             }
+
+                            Spacer(modifier = Modifier.width(8.dp))
 
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = "⏱ ${workout.duration} mins",
                                     color = TextSilver,
                                     fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    softWrap = false
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 IconButton(

@@ -416,18 +416,13 @@ fun ProfileScreen(
                                         text = goal.title,
                                         color = TextWhite,
                                         fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        fontWeight = FontWeight.Bold
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = "Target: ${goal.targetValue} ${goal.unit}",
                                         color = TextGray,
-                                        fontSize = 12.sp,
-                                        maxLines = 1,
-                                        softWrap = false
+                                        fontSize = 12.sp
                                     )
                                 }
 
@@ -562,19 +557,14 @@ fun ProfileScreen(
                                             text = goal.title,
                                             color = TextWhite,
                                             fontSize = 15.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            maxLines = 1,
-                                            softWrap = false,
-                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                            fontWeight = FontWeight.Bold
                                         )
                                     }
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = "Achieved: ${goal.targetValue} ${goal.unit}",
                                         color = TextSilver,
-                                        fontSize = 12.sp,
-                                        maxLines = 1,
-                                        softWrap = false
+                                        fontSize = 12.sp
                                     )
                                 }
 

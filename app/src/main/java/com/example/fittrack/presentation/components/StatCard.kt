@@ -84,6 +84,7 @@ fun StatCard(
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
+            softWrap = false,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
         Spacer(modifier = Modifier.height(2.dp))
@@ -92,6 +93,7 @@ fun StatCard(
             color = TextGray,
             fontSize = 12.sp,
             maxLines = 1,
+            softWrap = false,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
     }

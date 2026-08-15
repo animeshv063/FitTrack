@@ -454,12 +454,10 @@ fun ProgressScreen(
                                         text = pr.exerciseName,
                                         color = TextWhite,
                                         fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        softWrap = false,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        fontWeight = FontWeight.Bold
                                     )
-                                    Text(text = "Peak Lift Record", color = TextGray, fontSize = 12.sp, maxLines = 1)
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(text = "Peak Lift Record", color = TextGray, fontSize = 12.sp)
                                 }
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {

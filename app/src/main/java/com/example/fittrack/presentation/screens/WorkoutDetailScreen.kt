@@ -223,15 +223,13 @@ fun WorkoutDetailScreen(
                         .border(1.dp, CardBorderWhite, RoundedCornerShape(24.dp))
                         .padding(16.dp)
                 ) {
+                    // Row 1: Back Button & Live Timer on left, [Finish / End & Save] on right
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             if (navController != null) {
                                 Box(
                                     modifier = Modifier
@@ -251,33 +249,24 @@ fun WorkoutDetailScreen(
                                 Spacer(modifier = Modifier.width(10.dp))
                             }
 
-                            Column {
-                                Text(
-                                    text = currentWorkout?.name ?: "Active Workout",
-                                    color = TextWhite,
-                                    fontSize = 19.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(7.dp)
+                                        .background(if (isSessionActive) NeonTeal else TextSilver, CircleShape)
                                 )
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(7.dp)
-                                            .background(if (isSessionActive) NeonTeal else TextSilver, CircleShape)
-                                    )
-                                    Spacer(modifier = Modifier.width(5.dp))
-                                    Text(
-                                        text = if (isSessionActive) {
-                                            "⏱ ${formatSecondsToMMSS(sessionSeconds)} Live Session"
-                                        } else {
-                                            val displaySec = if (recordedDurationSeconds > 0) recordedDurationSeconds else sessionSeconds
-                                            "⏱ ${formatSecondsToMMSS(displaySec)} Session Finished"
-                                        },
-                                        color = if (isSessionActive) NeonTeal else TextSilver,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text(
+                                    text = if (isSessionActive) {
+                                        "⏱ ${formatSecondsToMMSS(sessionSeconds)} Live"
+                                    } else {
+                                        val displaySec = if (recordedDurationSeconds > 0) recordedDurationSeconds else sessionSeconds
+                                        "⏱ ${formatSecondsToMMSS(displaySec)} Finished"
+                                    },
+                                    color = if (isSessionActive) NeonTeal else TextSilver,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
 
@@ -323,6 +312,16 @@ fun WorkoutDetailScreen(
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Row 2: Full-width Routine Title (zero ellipsis, 100% readable)
+                    Text(
+                        text = currentWorkout?.name ?: "Active Workout",
+                        color = TextWhite,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
 
                     Spacer(modifier = Modifier.height(12.dp))
 

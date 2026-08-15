@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.LocalFireDepartment
@@ -107,40 +108,40 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        FitTrackLogo(size = 32.dp, showText = true)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Welcome back, ${userProfile?.name ?: "Athlete"}",
-                            color = TextSilver,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                    FitTrackLogo(size = 32.dp, showText = true)
 
                     Box(
                         modifier = Modifier
-                            .background(CardDarkElevated, RoundedCornerShape(16.dp))
-                            .border(1.dp, CardBorderActive, RoundedCornerShape(16.dp))
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                            .background(CardDarkElevated, RoundedCornerShape(14.dp))
+                            .border(1.dp, CardBorderActive, RoundedCornerShape(14.dp))
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Rounded.EmojiEvents,
                                 contentDescription = "Rank",
                                 tint = TextWhite,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
                                 text = dynamicTitle,
                                 color = TextWhite,
-                                fontSize = 12.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Welcome back, ${userProfile?.name ?: "Athlete"}",
+                    color = TextSilver,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
 
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -195,7 +196,7 @@ fun HomeScreen(
 
                     Text(
                         text = if (latestWorkout != null)
-                            "${latestWorkout.duration} mins • Tap to record your sets and rest timer"
+                            "${latestWorkout.duration} mins target • Record sets & rest stopwatch"
                         else
                             "Start a workout session or pick a template to begin.",
                         color = TextSilver,
@@ -275,6 +276,7 @@ fun HomeScreen(
                         )
                         .padding(18.dp)
                 ) {
+                    // 1. Top Row: Icon + "Hydration" on left, [Target: 3000ml] button on right with generous spacing
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -300,44 +302,53 @@ fun HomeScreen(
                                 )
                             }
                             Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "Hydration Logger",
-                                    color = TextWhite,
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = if (isGoalAchieved) "🎉 Daily Goal Achieved!" else "${((1f - waterProgress) * currentWaterGoal).toInt()} ml remaining",
-                                    color = if (isGoalAchieved) Color(0xFF38BDF8) else TextGray,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
+                            Text(
+                                text = "Hydration",
+                                color = TextWhite,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
 
                         Box(
                             modifier = Modifier
-                                .background(CardDarkElevated, RoundedCornerShape(12.dp))
-                                .border(1.dp, CardBorderActive, RoundedCornerShape(12.dp))
+                                .background(Color(0xFF38BDF8).copy(alpha = 0.14f), RoundedCornerShape(12.dp))
+                                .border(1.dp, Color(0xFF38BDF8).copy(alpha = 0.45f), RoundedCornerShape(12.dp))
                                 .clickable {
                                     customWaterInput = currentWaterGoal.toString()
                                     showEditWaterGoalDialog = true
                                 }
                                 .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
-                            Text(
-                                text = "Target: ${currentWaterGoal}ml ⚙️",
-                                color = TextWhite,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Edit,
+                                    contentDescription = "Edit Water Goal",
+                                    tint = Color(0xFF38BDF8),
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Target: ${currentWaterGoal}ml",
+                                    color = Color(0xFF38BDF8),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // 2. Full-width Subtitle: 100% readable with zero ellipsis
+                    Text(
+                        text = if (isGoalAchieved) "🎉 Daily Hydration Goal Achieved (${totalWaterMl}ml)!" else "Hydration Logger • ${((1f - waterProgress) * currentWaterGoal).toInt()} ml remaining",
+                        color = if (isGoalAchieved) Color(0xFF38BDF8) else TextGray,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     // Progress Bar
                     Column {

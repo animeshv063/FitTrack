@@ -78,6 +78,7 @@ fun ActivityCard(
             .border(1.dp, CardBorderWhite, RoundedCornerShape(24.dp))
             .padding(18.dp)
     ) {
+        // 1. Top Header: Title & Badges
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -86,7 +87,7 @@ fun ActivityCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(36.dp)
                         .background(CardDarkElevated, CircleShape)
                         .border(1.dp, NeonTeal.copy(alpha = 0.5f), CircleShape),
                     contentAlignment = Alignment.Center
@@ -95,25 +96,16 @@ fun ActivityCard(
                         imageVector = Icons.AutoMirrored.Rounded.DirectionsWalk,
                         contentDescription = "Activity Steps",
                         tint = NeonTeal,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = "Daily Activity",
-                        color = TextWhite,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                    Text(
-                        text = "Pedometer & Caloric Burn",
-                        color = TextGray,
-                        fontSize = 12.sp,
-                        maxLines = 1
-                    )
-                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Daily Activity",
+                    color = TextWhite,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -127,14 +119,14 @@ fun ActivityCard(
                                 errorMessage = ""
                                 showEditStepsDialog = true
                             }
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Rounded.Edit,
                                 contentDescription = "Edit Steps",
                                 tint = NeonTeal,
-                                modifier = Modifier.size(13.dp)
+                                modifier = Modifier.size(12.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
@@ -150,22 +142,32 @@ fun ActivityCard(
 
                 Box(
                     modifier = Modifier
-                        .background(NeonTeal.copy(alpha = 0.12f), RoundedCornerShape(12.dp))
-                        .border(1.dp, NeonTeal.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .background(NeonTeal.copy(alpha = 0.14f), RoundedCornerShape(12.dp))
+                        .border(1.dp, NeonTeal.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     Text(
                         text = "${(animatedProgress * 100).toInt()}% Goal",
                         color = NeonTeal,
-                        fontSize = 12.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
+        // 2. Full Width Subtitle: 100% readable with zero ellipsis
+        Text(
+            text = "Pedometer & Caloric Burn Tracking",
+            color = TextGray,
+            fontSize = 12.sp
+        )
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // 3. Stats Row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -182,7 +184,7 @@ fun ActivityCard(
                 Text(
                     text = "$steps / $stepGoal steps",
                     color = TextWhite,
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
