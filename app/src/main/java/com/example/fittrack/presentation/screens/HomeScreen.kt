@@ -42,12 +42,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.fittrack.data.local.entity.WorkoutEntity
+import com.example.fittrack.data.sound.SoundAlarmManager
 import com.example.fittrack.navigation.Routes
 import com.example.fittrack.presentation.components.ActivityCard
 import com.example.fittrack.presentation.components.CalendarStreakCard
@@ -61,10 +65,15 @@ import com.example.fittrack.presentation.theme.CardBorderWhite
 import com.example.fittrack.presentation.theme.CardDark
 import com.example.fittrack.presentation.theme.CardDarkElevated
 import com.example.fittrack.presentation.theme.DangerRed
+import com.example.fittrack.presentation.theme.FlameOrange
+import com.example.fittrack.presentation.theme.NeonCyan
 import com.example.fittrack.presentation.theme.TextGray
 import com.example.fittrack.presentation.theme.TextSilver
 import com.example.fittrack.presentation.theme.TextWhite
 import com.example.fittrack.presentation.viewmodel.WorkoutViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun HomeScreen(
@@ -83,12 +92,34 @@ fun HomeScreen(
     val totalWaterMl = waterLogs.sumOf { it.amountMl }
     val dynamicTitle = viewModel.getAthleteTitle(completedWorkouts)
 
+    val context = LocalContext.current
+    val soundAlarmManager = remember { SoundAlarmManager(context) }
+    var showStepGoalCelebrationDialog by remember { mutableStateOf(false) }
+
+    val todayDateString = remember {
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+    }
+
     var visible by remember { mutableStateOf(false) }
     var workoutToDelete by remember { mutableStateOf<WorkoutEntity?>(null) }
 
     LaunchedEffect(Unit) {
         visible = true
         viewModel.startStepCounter()
+    }
+
+    // Step Goal Achievement Celebration on App Launch / Re-open
+    LaunchedEffect(steps, userProfile) {
+        val currentGoal = userProfile?.stepGoal ?: 10000
+        if (steps >= currentGoal && currentGoal > 0) {
+            val prefs = context.getSharedPreferences("fittrack_celebrations", android.content.Context.MODE_PRIVATE)
+            val lastCelebrated = prefs.getString("last_step_goal_celebrated_date", null)
+            if (lastCelebrated != todayDateString) {
+                prefs.edit().putString("last_step_goal_celebrated_date", todayDateString).apply()
+                soundAlarmManager.playWorkoutCompletedSound()
+                showStepGoalCelebrationDialog = true
+            }
+        }
     }
 
     GlowingBackground {
@@ -244,13 +275,13 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Step Activity Card with Manual Adjustment Support
+                // Step Activity Card with Customizable Step Goal
                 ActivityCard(
                     steps = steps,
                     calories = calories,
                     stepGoal = userProfile?.stepGoal ?: 10000,
-                    onUpdateSteps = { newSteps ->
-                        viewModel.updateSteps(newSteps)
+                    onUpdateStepGoal = { newGoal ->
+                        viewModel.updateStepGoal(newGoal)
                     }
                 )
 
@@ -584,6 +615,138 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(110.dp))
             }
         }
+    }
+
+    // Step Goal Achieved Celebration Modal Dialog
+    if (showStepGoalCelebrationDialog) {
+        val currentGoal = userProfile?.stepGoal ?: 10000
+        val estDistanceKm = steps * 0.00075
+        val estCalories = (steps * 0.04).toInt()
+
+        AlertDialog(
+            onDismissRequest = { showStepGoalCelebrationDialog = false },
+            containerColor = CardDark,
+            shape = RoundedCornerShape(24.dp),
+            title = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .background(
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0xFF00FFA3).copy(alpha = 0.3f),
+                                        Color(0xFF00FFA3).copy(alpha = 0.05f),
+                                        Color.Transparent
+                                    )
+                                ),
+                                CircleShape
+                            )
+                            .border(2.dp, Color(0xFF00FFA3), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.EmojiEvents,
+                            contentDescription = "Trophy",
+                            tint = Color(0xFF00FFA3),
+                            modifier = Modifier.size(38.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "Daily Step Goal Conquered! 🏆",
+                        color = TextWhite,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Outstanding dedication! You have successfully reached your daily target of ${String.format(Locale.US, "%,d", currentGoal)} steps by logging ${String.format(Locale.US, "%,d", steps)} steps today.",
+                        color = TextSilver,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 3-Metric Summary Card
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(CardDarkElevated, RoundedCornerShape(16.dp))
+                            .border(1.dp, CardBorderActive.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceAround
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = "Total Steps", color = TextGray, fontSize = 11.sp)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = String.format(Locale.US, "%,d", steps),
+                                color = Color(0xFF00FFA3),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = "Burned", color = TextGray, fontSize = 11.sp)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "$estCalories kcal",
+                                color = FlameOrange,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(text = "Distance", color = TextGray, fontSize = 11.sp)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = String.format(Locale.US, "%.2f km", estDistanceKm),
+                                color = NeonCyan,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "Your consistency is building unstoppable momentum.",
+                        color = TextGray,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            confirmButton = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp)
+                ) {
+                    PrimaryButton(
+                        text = "Keep Crushing It 🔥",
+                        onClick = { showStepGoalCelebrationDialog = false },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        )
     }
 
     // Delete Confirmation Dialog

@@ -323,6 +323,13 @@ class WorkoutViewModel(
         }
     }
 
+    fun updateStepGoal(newStepGoal: Int) {
+        viewModelScope.launch {
+            val current = userProfile.value ?: UserProfileEntity()
+            repository.saveUserProfile(current.copy(stepGoal = newStepGoal))
+        }
+    }
+
 
     // -------------------------
     // PERSONAL RECORDS (PRs)

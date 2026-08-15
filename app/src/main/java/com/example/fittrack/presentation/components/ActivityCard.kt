@@ -58,27 +58,33 @@ fun ActivityCard(
     steps: Int,
     calories: Int,
     stepGoal: Int = 10000,
-    onUpdateSteps: ((Int) -> Unit)? = null
+    onUpdateStepGoal: ((Int) -> Unit)? = null
 ) {
-    val rawProgress = (steps.toFloat() / stepGoal.toFloat()).coerceIn(0f, 1f)
+    val rawProgress = if (stepGoal > 0) (steps.toFloat() / stepGoal.toFloat()).coerceIn(0f, 1f) else 0f
     val animatedProgress by animateFloatAsState(
         targetValue = rawProgress,
         animationSpec = tween(durationMillis = 800),
         label = "progressAnimation"
     )
 
-    var showEditStepsDialog by remember { mutableStateOf(false) }
-    var editStepText by remember { mutableStateOf(steps.toString()) }
+    var showEditGoalDialog by remember { mutableStateOf(false) }
+    var editGoalText by remember { mutableStateOf(stepGoal.toString()) }
     var errorMessage by remember { mutableStateOf("") }
+
+    val isGoalAchieved = steps >= stepGoal && stepGoal > 0
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(CardDark, RoundedCornerShape(24.dp))
-            .border(1.dp, CardBorderWhite, RoundedCornerShape(24.dp))
+            .border(
+                1.dp,
+                if (isGoalAchieved) NeonTeal.copy(alpha = 0.8f) else CardBorderWhite,
+                RoundedCornerShape(24.dp)
+            )
             .padding(18.dp)
     ) {
-        // 1. Top Header: Title & Badges
+        // 1. Top Header: Title on left, [Target: 10000 steps] button on right
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -89,7 +95,11 @@ fun ActivityCard(
                     modifier = Modifier
                         .size(36.dp)
                         .background(CardDarkElevated, CircleShape)
-                        .border(1.dp, NeonTeal.copy(alpha = 0.5f), CircleShape),
+                        .border(
+                            1.dp,
+                            if (isGoalAchieved) NeonTeal else NeonTeal.copy(alpha = 0.5f),
+                            CircleShape
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -99,7 +109,7 @@ fun ActivityCard(
                         modifier = Modifier.size(18.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = "Daily Activity",
                     color = TextWhite,
@@ -108,46 +118,27 @@ fun ActivityCard(
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (onUpdateSteps != null) {
-                    Box(
-                        modifier = Modifier
-                            .background(CardDarkElevated, RoundedCornerShape(12.dp))
-                            .border(1.dp, CardBorderWhite, RoundedCornerShape(12.dp))
-                            .clickable {
-                                editStepText = steps.toString()
-                                errorMessage = ""
-                                showEditStepsDialog = true
-                            }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.Edit,
-                                contentDescription = "Edit Steps",
-                                tint = NeonTeal,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Edit",
-                                color = NeonTeal,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+            Box(
+                modifier = Modifier
+                    .background(NeonTeal.copy(alpha = 0.14f), RoundedCornerShape(12.dp))
+                    .border(1.dp, NeonTeal.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
+                    .clickable {
+                        editGoalText = stepGoal.toString()
+                        errorMessage = ""
+                        showEditGoalDialog = true
                     }
-                    Spacer(modifier = Modifier.width(6.dp))
-                }
-
-                Box(
-                    modifier = Modifier
-                        .background(NeonTeal.copy(alpha = 0.14f), RoundedCornerShape(12.dp))
-                        .border(1.dp, NeonTeal.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Rounded.Edit,
+                        contentDescription = "Edit Step Goal",
+                        tint = NeonTeal,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "${(animatedProgress * 100).toInt()}% Goal",
+                        text = "Target: $stepGoal",
                         color = NeonTeal,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
@@ -156,13 +147,17 @@ fun ActivityCard(
             }
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         // 2. Full Width Subtitle: 100% readable with zero ellipsis
         Text(
-            text = "Pedometer & Caloric Burn Tracking",
-            color = TextGray,
-            fontSize = 12.sp
+            text = if (isGoalAchieved)
+                "🎉 Daily Step Goal Achieved ($steps steps)!"
+            else
+                "Pedometer & Caloric Burn • ${maxOf(0, stepGoal - steps)} steps remaining",
+            color = if (isGoalAchieved) NeonTeal else TextGray,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium
         )
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -231,15 +226,12 @@ fun ActivityCard(
         }
     }
 
-    // Edit Steps Modal Dialog
-    if (showEditStepsDialog) {
-        val quickIncrements = listOf(500, 1000, 2500, 5000)
-        val currentParsed = editStepText.toIntOrNull() ?: 0
-        val estCalories = (currentParsed * 0.04).toInt()
-        val estDistanceKm = currentParsed * 0.00075
+    // Set Daily Step Goal Modal Dialog
+    if (showEditGoalDialog) {
+        val goalPresets = listOf(5000, 8000, 10000, 12000, 15000, 20000)
 
         AlertDialog(
-            onDismissRequest = { showEditStepsDialog = false },
+            onDismissRequest = { showEditGoalDialog = false },
             containerColor = CardDark,
             titleContentColor = TextWhite,
             textContentColor = TextSilver,
@@ -252,27 +244,27 @@ fun ActivityCard(
                         modifier = Modifier.size(22.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Adjust Today's Steps", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text("Set Daily Step Goal", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 }
             },
             text = {
                 Column {
                     Text(
-                        text = "Manually enter or adjust your recorded steps for today:",
+                        text = "Update your daily target step goal. Your recorded steps will not be modified:",
                         color = TextGray,
                         fontSize = 13.sp
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     OutlinedTextField(
-                        value = editStepText,
+                        value = editGoalText,
                         onValueChange = {
-                            editStepText = it.filter { c -> c.isDigit() }
+                            editGoalText = it.filter { c -> c.isDigit() }
                             errorMessage = ""
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Step Count") },
+                        label = { Text("Daily Step Goal") },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = TextWhite,
                             unfocusedTextColor = TextWhite,
@@ -285,73 +277,39 @@ fun ActivityCard(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    Text("Quick Adjustments:", color = TextWhite, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Quick Goal Presets:", color = TextWhite, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(6.dp))
 
                     LazyRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        items(quickIncrements) { delta ->
+                        items(goalPresets) { preset ->
+                            val isSelected = editGoalText == preset.toString()
                             Box(
                                 modifier = Modifier
-                                    .background(CardDarkElevated, RoundedCornerShape(10.dp))
-                                    .border(1.dp, CardBorderWhite, RoundedCornerShape(10.dp))
+                                    .background(
+                                        if (isSelected) NeonTeal.copy(alpha = 0.2f) else CardDarkElevated,
+                                        RoundedCornerShape(10.dp)
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (isSelected) NeonTeal else CardBorderWhite,
+                                        RoundedCornerShape(10.dp)
+                                    )
                                     .clickable {
-                                        val cur = editStepText.toIntOrNull() ?: 0
-                                        editStepText = (cur + delta).toString()
+                                        editGoalText = preset.toString()
                                         errorMessage = ""
                                     }
                                     .padding(horizontal = 10.dp, vertical = 6.dp)
                             ) {
-                                Text(text = "+$delta", color = NeonTeal, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = String.format(Locale.US, "%,d", preset),
+                                    color = if (isSelected) NeonTeal else TextWhite,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
-                        }
-
-                        item {
-                            Box(
-                                modifier = Modifier
-                                    .background(CardDarkElevated, RoundedCornerShape(10.dp))
-                                    .border(1.dp, DangerRed.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                                    .clickable {
-                                        editStepText = "0"
-                                        errorMessage = ""
-                                    }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Text(text = "Reset (0)", color = DangerRed, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Live Stats Preview Box
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(CardDarkElevated, RoundedCornerShape(12.dp))
-                            .border(1.dp, CardBorderWhite.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-                            .padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text("Est. Calories", color = TextGray, fontSize = 11.sp)
-                            Text("$estCalories kcal", color = FlameOrange, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Column {
-                            Text("Est. Distance", color = TextGray, fontSize = 11.sp)
-                            Text(
-                                String.format(Locale.US, "%.2f km", estDistanceKm),
-                                color = NeonCyan,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Column {
-                            Text("Goal Progress", color = TextGray, fontSize = 11.sp)
-                            val pct = ((currentParsed.toFloat() / stepGoal.toFloat()) * 100).toInt()
-                            Text("$pct%", color = NeonTeal, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -364,20 +322,20 @@ fun ActivityCard(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val parsed = editStepText.toIntOrNull()
-                        if (parsed == null || parsed < 0) {
-                            errorMessage = "Please enter a valid step number"
+                        val parsed = editGoalText.toIntOrNull()
+                        if (parsed == null || parsed <= 0) {
+                            errorMessage = "Please enter a valid step goal (e.g. 10000)"
                         } else {
-                            onUpdateSteps?.invoke(parsed)
-                            showEditStepsDialog = false
+                            onUpdateStepGoal?.invoke(parsed)
+                            showEditGoalDialog = false
                         }
                     }
                 ) {
-                    Text("Save Steps", color = NeonTeal, fontWeight = FontWeight.Bold)
+                    Text("Save Step Goal", color = NeonTeal, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showEditStepsDialog = false }) {
+                TextButton(onClick = { showEditGoalDialog = false }) {
                     Text("Cancel", color = TextGray)
                 }
             }
