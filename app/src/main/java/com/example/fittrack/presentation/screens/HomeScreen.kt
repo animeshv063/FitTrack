@@ -22,14 +22,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.LocalFireDepartment
-import androidx.compose.material.icons.rounded.TrackChanges
 import androidx.compose.material.icons.rounded.WaterDrop
+import androidx.compose.material.icons.rounded.Whatshot
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -41,8 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,6 +50,7 @@ import com.example.fittrack.data.local.entity.WorkoutEntity
 import com.example.fittrack.navigation.Routes
 import com.example.fittrack.presentation.components.ActivityCard
 import com.example.fittrack.presentation.components.CalendarStreakCard
+import com.example.fittrack.presentation.components.FitTrackLogo
 import com.example.fittrack.presentation.components.GlowingBackground
 import com.example.fittrack.presentation.components.PrimaryButton
 import com.example.fittrack.presentation.components.StatCard
@@ -77,7 +77,7 @@ fun HomeScreen(
 
     val calories = (steps * 0.04).toInt()
     val completedWorkouts = workouts.count { it.completed }
-    val latestWorkout = workouts.firstOrNull()
+    val latestWorkout = workouts.firstOrNull { !it.completed } ?: workouts.firstOrNull()
 
     val totalWaterMl = waterLogs.sumOf { it.amountMl }
     val dynamicTitle = viewModel.getAthleteTitle(completedWorkouts)
@@ -101,26 +101,20 @@ fun HomeScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 20.dp)
             ) {
-                // Header Card
+                // Header Card with FitTrack Logo Branding
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
+                        FitTrackLogo(size = 32.dp, showText = true)
+                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "TRAINING DASHBOARD",
-                            color = TextGray,
-                            fontSize = 11.sp,
-                            letterSpacing = 1.2.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = userProfile?.name ?: "Athlete",
-                            color = TextWhite,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold
+                            text = "Welcome back, ${userProfile?.name ?: "Athlete"}",
+                            color = TextSilver,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
 
@@ -150,7 +144,81 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Stats Grid with Vector Icons
+                // Clean Minimal Training Session Hero Card
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(CardDark, RoundedCornerShape(24.dp))
+                        .border(1.dp, CardBorderActive, RoundedCornerShape(24.dp))
+                        .padding(18.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .background(CardDarkElevated, CircleShape)
+                                    .border(1.dp, CardBorderActive.copy(alpha = 0.5f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.FitnessCenter,
+                                    contentDescription = "Workout",
+                                    tint = TextWhite,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "TRAINING SESSION",
+                                    color = TextGray,
+                                    fontSize = 11.sp,
+                                    letterSpacing = 1.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = latestWorkout?.name ?: "Ready for Training",
+                                    color = TextWhite,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = if (latestWorkout != null)
+                            "${latestWorkout.duration} mins • Tap to record your sets and rest timer"
+                        else
+                            "Start a workout session or pick a template to begin.",
+                        color = TextSilver,
+                        fontSize = 12.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    PrimaryButton(
+                        text = if (latestWorkout != null) "▶ Resume Training Session" else "▶ Start Training Session",
+                        onClick = {
+                            if (latestWorkout != null) {
+                                navController.navigate("workout_detail/${latestWorkout.id}")
+                            } else {
+                                navController.navigate(Routes.Workout.route)
+                            }
+                        }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Stats Grid
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     StatCard(
                         title = "Workouts Done",
@@ -173,25 +241,38 @@ fun HomeScreen(
                     workouts = workouts
                 )
 
-
-
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Step Activity Card
+                // Step Activity Card with Manual Adjustment Support
                 ActivityCard(
                     steps = steps,
                     calories = calories,
-                    stepGoal = userProfile?.stepGoal ?: 10000
+                    stepGoal = userProfile?.stepGoal ?: 10000,
+                    onUpdateSteps = { newSteps ->
+                        viewModel.updateSteps(newSteps)
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Hydration Quick Logger Card
+                // Hydration Quick Logger Card with Customizable Goal & Progress Bar
+                val currentWaterGoal = userProfile?.waterGoalMl ?: 3000
+                val waterProgress = (totalWaterMl.toFloat() / currentWaterGoal.toFloat()).coerceIn(0f, 1f)
+                val isGoalAchieved = totalWaterMl >= currentWaterGoal
+
+                var showEditWaterGoalDialog by remember { mutableStateOf(false) }
+                var customWaterInput by remember { mutableStateOf(currentWaterGoal.toString()) }
+                var showHydrationCelebrationDialog by remember { mutableStateOf(false) }
+
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(CardDark, RoundedCornerShape(24.dp))
-                        .border(1.dp, CardBorderWhite, RoundedCornerShape(24.dp))
+                        .border(
+                            1.dp,
+                            if (isGoalAchieved) Color(0xFF38BDF8).copy(alpha = 0.8f) else CardBorderWhite,
+                            RoundedCornerShape(24.dp)
+                        )
                         .padding(18.dp)
                 ) {
                     Row(
@@ -204,116 +285,292 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .background(CardDarkElevated, CircleShape)
-                                    .border(1.dp, CardBorderActive.copy(alpha = 0.3f), CircleShape),
+                                    .border(
+                                        1.dp,
+                                        if (isGoalAchieved) Color(0xFF38BDF8) else CardBorderActive.copy(alpha = 0.3f),
+                                        CircleShape
+                                    ),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.WaterDrop,
                                     contentDescription = "Hydration",
-                                    tint = TextWhite,
+                                    tint = if (isGoalAchieved) Color(0xFF38BDF8) else TextWhite,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
                             Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Hydration Logger",
+                                    color = TextWhite,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (isGoalAchieved) "🎉 Daily Goal Achieved!" else "${((1f - waterProgress) * currentWaterGoal).toInt()} ml remaining",
+                                    color = if (isGoalAchieved) Color(0xFF38BDF8) else TextGray,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .background(CardDarkElevated, RoundedCornerShape(12.dp))
+                                .border(1.dp, CardBorderActive, RoundedCornerShape(12.dp))
+                                .clickable {
+                                    customWaterInput = currentWaterGoal.toString()
+                                    showEditWaterGoalDialog = true
+                                }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
                             Text(
-                                text = "Hydration Logger",
+                                text = "Target: ${currentWaterGoal}ml ⚙️",
                                 color = TextWhite,
-                                fontSize = 17.sp,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Progress Bar
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "$totalWaterMl ml logged",
+                                color = TextWhite,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "${(waterProgress * 100).toInt()}%",
+                                color = if (isGoalAchieved) Color(0xFF38BDF8) else TextSilver,
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
-
-                        Text(
-                            text = "$totalWaterMl / ${userProfile?.waterGoalMl ?: 3000} ml",
-                            color = TextWhite,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .background(CardDarkElevated, CircleShape)
+                        ) {
+                            if (waterProgress > 0f) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(waterProgress)
+                                        .height(8.dp)
+                                        .background(
+                                            androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                                colors = listOf(Color(0xFF38BDF8), Color(0xFF00F2FE))
+                                            ),
+                                            CircleShape
+                                        )
+                                )
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .background(CardDarkElevated, RoundedCornerShape(16.dp))
-                                .border(1.dp, CardBorderWhite, RoundedCornerShape(16.dp))
-                                .clickable { viewModel.addWaterLog(250) }
+                                .background(CardDarkElevated, RoundedCornerShape(14.dp))
+                                .border(1.dp, CardBorderWhite, RoundedCornerShape(14.dp))
+                                .clickable {
+                                    val prev = totalWaterMl
+                                    viewModel.addWaterLog(250)
+                                    if (prev < currentWaterGoal && (prev + 250) >= currentWaterGoal && (userProfile?.celebrationAnimationsEnabled != false)) {
+                                        showHydrationCelebrationDialog = true
+                                    }
+                                }
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(text = "+250 ml", color = TextWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text(text = "+250 ml", color = TextWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                         }
 
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .background(CardDarkElevated, RoundedCornerShape(16.dp))
-                                .border(1.dp, CardBorderWhite, RoundedCornerShape(16.dp))
-                                .clickable { viewModel.addWaterLog(500) }
+                                .background(CardDarkElevated, RoundedCornerShape(14.dp))
+                                .border(1.dp, CardBorderWhite, RoundedCornerShape(14.dp))
+                                .clickable {
+                                    val prev = totalWaterMl
+                                    viewModel.addWaterLog(500)
+                                    if (prev < currentWaterGoal && (prev + 500) >= currentWaterGoal && (userProfile?.celebrationAnimationsEnabled != false)) {
+                                        showHydrationCelebrationDialog = true
+                                    }
+                                }
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(text = "+500 ml", color = TextWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text(text = "+500 ml", color = TextWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                         }
 
                         if (waterLogs.isNotEmpty()) {
                             Box(
                                 modifier = Modifier
-                                    .background(CardDarkElevated, RoundedCornerShape(16.dp))
-                                    .border(1.dp, DangerRed.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                                    .background(CardDarkElevated, RoundedCornerShape(14.dp))
+                                    .border(1.dp, DangerRed.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
                                     .clickable { viewModel.deleteLastWaterLog() }
                                     .padding(horizontal = 14.dp, vertical = 12.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(text = "Undo", color = DangerRed, fontSize = 13.sp)
+                                Text(text = "Undo", color = DangerRed, fontSize = 13.sp, maxLines = 1, softWrap = false)
                             }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                // Edit Water Target Dialog
+                if (showEditWaterGoalDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showEditWaterGoalDialog = false },
+                        containerColor = CardDark,
+                        titleContentColor = TextWhite,
+                        textContentColor = TextSilver,
+                        title = { Text("Customize Daily Hydration Goal", fontWeight = FontWeight.Bold) },
+                        text = {
+                            Column {
+                                Text(
+                                    text = "Select preset or enter your custom water intake goal:",
+                                    color = TextSilver,
+                                    fontSize = 13.sp
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
 
-                // Current Program Section
-                Text(
-                    text = "Current Program",
-                    color = TextWhite,
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                                // Quick presets
+                                androidx.compose.foundation.lazy.LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    val presets = listOf(1500, 2000, 2500, 3000, 3500, 4000)
+                                    items(presets.size) { i ->
+                                        val ml = presets[i]
+                                        val isSel = customWaterInput == ml.toString()
+                                        Box(
+                                            modifier = Modifier
+                                                .background(
+                                                    if (isSel) TextWhite else CardDarkElevated,
+                                                    RoundedCornerShape(10.dp)
+                                                )
+                                                .border(
+                                                    1.dp,
+                                                    if (isSel) CardBorderActive else CardBorderWhite,
+                                                    RoundedCornerShape(10.dp)
+                                                )
+                                                .clickable { customWaterInput = ml.toString() }
+                                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                        ) {
+                                            Text(
+                                                text = "${ml}ml",
+                                                color = if (isSel) CardDark else TextWhite,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                                Spacer(modifier = Modifier.height(14.dp))
 
-                if (latestWorkout != null) {
-                    WorkoutCard(
-                        name = latestWorkout.name,
-                        duration = latestWorkout.duration,
-                        completed = latestWorkout.completed,
-                        onDelete = { workoutToDelete = latestWorkout },
-                        onClick = {
-                            navController.navigate("workout_detail/${latestWorkout.id}")
+                                androidx.compose.material3.OutlinedTextField(
+                                    value = customWaterInput,
+                                    onValueChange = { customWaterInput = it.filter { c -> c.isDigit() } },
+                                    label = { Text("Daily Water Target (ml)") },
+                                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = TextWhite,
+                                        unfocusedBorderColor = CardBorderWhite,
+                                        focusedLabelColor = TextWhite,
+                                        unfocusedLabelColor = TextGray,
+                                        focusedTextColor = TextWhite,
+                                        unfocusedTextColor = TextWhite
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(
+                                onClick = {
+                                    val newGoal = customWaterInput.toIntOrNull() ?: 3000
+                                    if (newGoal >= 500) {
+                                        viewModel.updateWaterGoal(newGoal)
+                                        showEditWaterGoalDialog = false
+                                    }
+                                }
+                            ) {
+                                Text("Save Target", color = TextWhite, fontWeight = FontWeight.Bold)
+                            }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(onClick = { showEditWaterGoalDialog = false }) {
+                                Text("Cancel", color = TextGray)
+                            }
                         }
-                    )
-                } else {
-                    WorkoutCard(
-                        name = "No Workouts Yet",
-                        duration = 0,
-                        completed = false,
-                        onClick = { navController.navigate(Routes.Workout.route) }
                     )
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                // Hydration Goal Crushed Celebration Dialog
+                if (showHydrationCelebrationDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showHydrationCelebrationDialog = false },
+                        containerColor = CardDark,
+                        titleContentColor = TextWhite,
+                        textContentColor = TextSilver,
+                        title = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Rounded.WaterDrop,
+                                    contentDescription = null,
+                                    tint = Color(0xFF38BDF8),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Daily Hydration Goal Achieved!", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            }
+                        },
+                        text = {
+                            Column {
+                                Text(
+                                    text = "Congratulations! You have reached your daily hydration target of ${totalWaterMl} of ${currentWaterGoal} ml.",
+                                    color = TextWhite,
+                                    fontSize = 13.sp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "✓ Optimal cellular hydration active\n✓ Maximum muscle nutrient transport\n✓ Accelerated metabolic recovery",
+                                    color = Color(0xFF38BDF8),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            PrimaryButton(
+                                text = "Continue",
+                                onClick = { showHydrationCelebrationDialog = false }
+                            )
+                        }
+                    )
+                }
 
-                PrimaryButton(
-                    text = "Start Training",
-                    onClick = { navController.navigate(Routes.Workout.route) },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Spacer(modifier = Modifier.height(110.dp))
             }
         }
     }

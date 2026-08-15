@@ -94,20 +94,20 @@ fun WorkoutCard(
                     Box(
                         modifier = Modifier
                             .background(CardDarkElevated, RoundedCornerShape(12.dp))
-                            .border(1.dp, CardBorderActive, RoundedCornerShape(12.dp))
+                            .border(1.dp, androidx.compose.ui.graphics.Color(0xFF10B981), RoundedCornerShape(12.dp))
                             .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Rounded.Check,
                                 contentDescription = "Completed",
-                                tint = TextWhite,
+                                tint = androidx.compose.ui.graphics.Color(0xFF10B981),
                                 modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Done",
-                                color = TextWhite,
+                                text = "Completed",
+                                color = androidx.compose.ui.graphics.Color(0xFF10B981),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )

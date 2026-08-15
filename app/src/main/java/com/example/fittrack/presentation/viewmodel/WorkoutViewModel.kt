@@ -17,6 +17,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+data class CustomExerciseDraft(
+    val name: String,
+    val sets: Int,
+    val reps: Int,
+    val weight: Int
+)
+
 class WorkoutViewModel(
     private val repository: WorkoutRepository,
     private val stepCounterManager: StepCounterManager
@@ -32,15 +39,26 @@ class WorkoutViewModel(
         stepCounterManager.start()
     }
 
+    fun updateSteps(newSteps: Int) {
+        stepCounterManager.setManualSteps(newSteps)
+    }
+
     // -------------------------
-    // TARGET VOLUME GOAL
+    // TARGET VOLUME GOAL & CHART SCALE
     // -------------------------
 
-    private val _targetVolumeGoal = MutableStateFlow(15000f)
+    private val _targetVolumeGoal = MutableStateFlow(25000f)
     val targetVolumeGoal: StateFlow<Float> = _targetVolumeGoal.asStateFlow()
+
+    private val _dailyVolumeScaleTarget = MutableStateFlow(3500f) // Realistic medium-high default
+    val dailyVolumeScaleTarget: StateFlow<Float> = _dailyVolumeScaleTarget.asStateFlow()
 
     fun updateTargetVolumeGoal(newGoal: Float) {
         _targetVolumeGoal.value = newGoal.coerceAtLeast(100f)
+    }
+
+    fun updateDailyVolumeScaleTarget(newScale: Float) {
+        _dailyVolumeScaleTarget.value = newScale.coerceAtLeast(500f)
     }
 
 
@@ -57,9 +75,10 @@ class WorkoutViewModel(
                 initialValue = emptyList()
             )
 
-    fun addWorkout(workout: WorkoutEntity) {
+    fun addWorkout(workout: WorkoutEntity, onCreated: ((Int) -> Unit)? = null) {
         viewModelScope.launch {
-            repository.insertWorkout(workout)
+            val id = repository.insertWorkout(workout).toInt()
+            onCreated?.invoke(id)
         }
     }
 
@@ -93,7 +112,7 @@ class WorkoutViewModel(
         }
     }
 
-    fun addPresetWorkout(presetName: String, durationMin: Int, exerciseList: List<Triple<String, Int, Int>>) {
+    fun addPresetWorkout(presetName: String, durationMin: Int, exerciseList: List<Triple<String, Int, Int>>, onCreated: ((Int) -> Unit)? = null) {
         viewModelScope.launch {
             val workoutId = repository.insertWorkout(
                 WorkoutEntity(
@@ -110,9 +129,62 @@ class WorkoutViewModel(
                         name = exName,
                         sets = sets,
                         reps = reps,
-                        weight = 20
+                        weight = when {
+                            exName.contains("Squat", ignoreCase = true) -> 60
+                            exName.contains("Deadlift", ignoreCase = true) -> 80
+                            exName.contains("Bench", ignoreCase = true) -> 50
+                            exName.contains("Press", ignoreCase = true) -> 35
+                            exName.contains("Curl", ignoreCase = true) -> 15
+                            exName.contains("Dip", ignoreCase = true) || exName.contains("Plank", ignoreCase = true) -> 0
+                            else -> 25
+                        }
                     )
                 )
+            }
+
+            onCreated?.invoke(workoutId)
+        }
+    }
+
+    fun addCustomWorkoutWithExercises(
+        name: String,
+        durationMin: Int,
+        exercises: List<CustomExerciseDraft>,
+        onCreated: ((Int) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val workoutId = repository.insertWorkout(
+                WorkoutEntity(
+                    name = name,
+                    duration = durationMin,
+                    date = System.currentTimeMillis()
+                )
+            ).toInt()
+
+            exercises.forEach { ex ->
+                repository.insertExercise(
+                    ExerciseEntity(
+                        workoutId = workoutId,
+                        name = ex.name,
+                        sets = ex.sets,
+                        reps = ex.reps,
+                        weight = ex.weight
+                    )
+                )
+            }
+
+            onCreated?.invoke(workoutId)
+        }
+    }
+
+    fun createOrGetDayWorkout(dayTitle: String, routineName: String, durationMin: Int, exercises: List<Triple<String, Int, Int>>, onReady: (Int) -> Unit) {
+        viewModelScope.launch {
+            val currentList = workouts.value
+            val existing = currentList.find { it.name.contains(routineName, ignoreCase = true) && !it.completed }
+            if (existing != null) {
+                onReady(existing.id)
+            } else {
+                addPresetWorkout("$dayTitle: $routineName", durationMin, exercises, onReady)
             }
         }
     }
@@ -183,6 +255,12 @@ class WorkoutViewModel(
         }
     }
 
+    fun completeGoal(goal: GoalEntity) {
+        viewModelScope.launch {
+            repository.updateGoal(goal.copy(isCompleted = true))
+        }
+    }
+
     fun deleteGoal(goal: GoalEntity) {
         viewModelScope.launch {
             repository.deleteGoal(goal)
@@ -235,6 +313,13 @@ class WorkoutViewModel(
     fun deleteAllWaterLogs() {
         viewModelScope.launch {
             repository.deleteAllWaterLogs()
+        }
+    }
+
+    fun updateWaterGoal(newGoalMl: Int) {
+        viewModelScope.launch {
+            val current = userProfile.value ?: UserProfileEntity()
+            repository.saveUserProfile(current.copy(waterGoalMl = newGoalMl))
         }
     }
 
@@ -295,6 +380,13 @@ class WorkoutViewModel(
         }
     }
 
+    fun toggleCelebrationAnimations(enabled: Boolean) {
+        viewModelScope.launch {
+            val current = userProfile.value ?: UserProfileEntity()
+            repository.saveUserProfile(current.copy(celebrationAnimationsEnabled = enabled))
+        }
+    }
+
     fun getAthleteTitle(completedWorkoutsCount: Int): String {
         return when {
             completedWorkoutsCount >= 50 -> "Master Athlete"
@@ -326,6 +418,7 @@ class WorkoutViewModel(
     fun resetAllData() {
         viewModelScope.launch {
             repository.resetAllData()
+            stepCounterManager.resetSteps()
         }
     }
 }

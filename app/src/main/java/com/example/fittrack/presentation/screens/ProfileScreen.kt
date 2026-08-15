@@ -1,5 +1,6 @@
 package com.example.fittrack.presentation.screens
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -17,7 +18,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,18 +29,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.FitnessCenter
+import androidx.compose.material.icons.rounded.MilitaryTech
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.TrackChanges
-import androidx.compose.material.icons.rounded.WaterDrop
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -57,10 +58,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -74,6 +75,7 @@ import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
 import com.example.fittrack.data.local.entity.GoalEntity
 import com.example.fittrack.data.local.entity.UserProfileEntity
+import com.example.fittrack.presentation.components.GiftBurstDialog
 import com.example.fittrack.presentation.components.GlowingBackground
 import com.example.fittrack.presentation.components.PrimaryButton
 import com.example.fittrack.presentation.components.StatCard
@@ -98,7 +100,9 @@ fun ProfileScreen(
     val workouts by viewModel.workouts.collectAsState()
     val exercises by viewModel.allExercises.collectAsState()
     val goals by viewModel.goals.collectAsState()
-    val waterLogs by viewModel.waterLogs.collectAsState()
+
+    val activeGoals = remember(goals) { goals.filter { !it.isCompleted } }
+    val achievedGoals = remember(goals) { goals.filter { it.isCompleted } }
 
     LaunchedEffect(Unit) {
         viewModel.startStepCounter()
@@ -108,8 +112,6 @@ fun ProfileScreen(
     val totalVolume = exercises.sumOf { it.sets * it.reps * it.weight }
     val currentProfile = userProfile ?: UserProfileEntity()
     val dynamicTitle = viewModel.getAthleteTitle(completedWorkouts)
-
-    val stepProgress = (steps.toFloat() / currentProfile.stepGoal.toFloat()).coerceIn(0f, 1f)
 
     val weightDisplay = if (currentProfile.weightKg > 0f) "${currentProfile.weightKg} kg" else "--"
     val heightDisplay = if (currentProfile.heightCm > 0f) "${currentProfile.heightCm.toInt()} cm" else "--"
@@ -139,15 +141,21 @@ fun ProfileScreen(
     var editWeight by remember { mutableStateOf(if (currentProfile.weightKg > 0f) currentProfile.weightKg.toString() else "") }
     var editHeight by remember { mutableStateOf(if (currentProfile.heightCm > 0f) currentProfile.heightCm.toString() else "") }
     var editStepGoal by remember { mutableStateOf(currentProfile.stepGoal.toString()) }
+    var editWaterGoal by remember { mutableStateOf(currentProfile.waterGoalMl.toString()) }
 
     var showAddGoalDialog by remember { mutableStateOf(false) }
     var goalTitleInput by remember { mutableStateOf("") }
     var goalTargetInput by remember { mutableStateOf("") }
     var goalUnitInput by remember { mutableStateOf("kg") }
     var goalToDelete by remember { mutableStateOf<GoalEntity?>(null) }
+    var achievedGoalToDelete by remember { mutableStateOf<GoalEntity?>(null) }
 
+    // Gift Burst Animation State
+    var celebratingGoal by remember { mutableStateOf<GoalEntity?>(null) }
+
+    // Multi-Step Confirmation Dialogs for Reset
     var showResetProfileDialog by remember { mutableStateOf(false) }
-    var showResetAllDataDialog by remember { mutableStateOf(false) }
+    var showResetAllDataConfirmDialog by remember { mutableStateOf(false) }
 
     GlowingBackground {
         AnimatedVisibility(
@@ -160,9 +168,23 @@ fun ProfileScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 20.dp)
             ) {
-                Text(text = "Athlete Profile", color = TextWhite, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(text = "Personal targets & body stats", color = TextGray, fontSize = 13.sp)
+                // Header
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "ATHLETE PROFILE",
+                        color = TextGray,
+                        fontSize = 11.sp,
+                        letterSpacing = 1.2.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Personal Stats & Goals",
+                        color = TextWhite,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -262,6 +284,7 @@ fun ProfileScreen(
                             editWeight = if (currentProfile.weightKg > 0f) currentProfile.weightKg.toString() else ""
                             editHeight = if (currentProfile.heightCm > 0f) currentProfile.heightCm.toString() else ""
                             editStepGoal = currentProfile.stepGoal.toString()
+                            editWaterGoal = currentProfile.waterGoalMl.toString()
                             showEditProfileDialog = true
                         },
                         modifier = Modifier.fillMaxWidth(0.9f)
@@ -270,7 +293,7 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Stats Overview 2x2 Grid
+                // Stats 2x2 Grid
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     StatCard(
                         title = "Weight",
@@ -305,116 +328,7 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Unique Athlete Fitness Trophies Showcase Card
-                val personalRecords by viewModel.personalRecords.collectAsState()
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(CardDark, RoundedCornerShape(24.dp))
-                        .border(1.dp, CardBorderWhite, RoundedCornerShape(24.dp))
-                        .padding(20.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(CardDarkElevated, CircleShape)
-                                    .border(1.dp, CardBorderActive.copy(alpha = 0.3f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.EmojiEvents,
-                                    contentDescription = "Trophy Showcase",
-                                    tint = TextWhite,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(text = "Athlete Mastery Trophies", color = TextWhite, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    val isMonarchUnlocked = completedWorkouts >= 5
-                    val isTitanUnlocked = totalVolume >= 10000
-                    val isPrUnlocked = personalRecords.isNotEmpty()
-
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(CardDarkElevated, RoundedCornerShape(16.dp))
-                                .border(1.dp, if (isMonarchUnlocked) CardBorderActive else CardBorderWhite, RoundedCornerShape(16.dp))
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(text = "🏆 Consistency Monarch", color = TextWhite, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text(text = "Complete 5 or more workouts ($completedWorkouts/5)", color = TextGray, fontSize = 11.sp)
-                            }
-                            Text(
-                                text = if (isMonarchUnlocked) "UNLOCKED" else "LOCKED",
-                                color = if (isMonarchUnlocked) TextWhite else TextGray,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(CardDarkElevated, RoundedCornerShape(16.dp))
-                                .border(1.dp, if (isTitanUnlocked) CardBorderActive else CardBorderWhite, RoundedCornerShape(16.dp))
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(text = "⚡ Volume Titan", color = TextWhite, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text(text = "Lift 10,000+ kg total volume (${totalVolume}kg)", color = TextGray, fontSize = 11.sp)
-                            }
-                            Text(
-                                text = if (isTitanUnlocked) "UNLOCKED" else "LOCKED",
-                                color = if (isTitanUnlocked) TextWhite else TextGray,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(CardDarkElevated, RoundedCornerShape(16.dp))
-                                .border(1.dp, if (isPrUnlocked) CardBorderActive else CardBorderWhite, RoundedCornerShape(16.dp))
-                                .padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(text = "🎯 PR Legend", color = TextWhite, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text(text = "Log at least 1 Personal Record (${personalRecords.size} PRs)", color = TextGray, fontSize = 11.sp)
-                            }
-                            Text(
-                                text = if (isPrUnlocked) "UNLOCKED" else "LOCKED",
-                                color = if (isPrUnlocked) TextWhite else TextGray,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Custom Personal Goals Card (Clean Horizontal Layout)
+                // Active Custom Goals Card
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -447,7 +361,7 @@ fun ProfileScreen(
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Custom Goals",
+                                text = "Active Custom Goals (${activeGoals.size})",
                                 color = TextWhite,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
@@ -476,43 +390,84 @@ fun ProfileScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    if (goals.isEmpty()) {
+                    if (activeGoals.isEmpty()) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(text = "No custom goals set yet. Tap '+ Add Goal' to set your targets.", color = TextGray, fontSize = 13.sp)
+                            Text(text = "No active custom goals. Tap '+ Add Goal' to track new milestones!", color = TextGray, fontSize = 13.sp)
                         }
                     } else {
-                        goals.forEach { goal ->
+                        activeGoals.forEach { goal ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp)
                                     .background(CardDarkElevated, RoundedCornerShape(16.dp))
                                     .border(1.dp, CardBorderWhite, RoundedCornerShape(16.dp))
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = goal.title, color = TextWhite, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        text = goal.title,
+                                        color = TextWhite,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    )
                                     Spacer(modifier = Modifier.height(2.dp))
-                                    Text(text = "Target: ${goal.targetValue} ${goal.unit}", color = TextGray, fontSize = 12.sp)
+                                    Text(
+                                        text = "Target: ${goal.targetValue} ${goal.unit}",
+                                        color = TextGray,
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
                                 }
 
-                                IconButton(
-                                    onClick = { goalToDelete = goal },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete Goal",
-                                        tint = DangerRed.copy(alpha = 0.8f),
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    // Mark as Done / Complete button (Triggers Gift Burst celebration!)
+                                    Box(
+                                        modifier = Modifier
+                                            .background(CardDark, RoundedCornerShape(10.dp))
+                                            .border(1.dp, Color(0xFF10B981), RoundedCornerShape(10.dp))
+                                            .clickable {
+                                                celebratingGoal = goal
+                                                viewModel.completeGoal(goal)
+                                            }
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Check,
+                                                contentDescription = "Complete",
+                                                tint = Color(0xFF10B981),
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(3.dp))
+                                            Text(text = "Done", color = Color(0xFF10B981), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(6.dp))
+
+                                    IconButton(
+                                        onClick = { goalToDelete = goal },
+                                        modifier = Modifier.size(30.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete Goal",
+                                            tint = DangerRed.copy(alpha = 0.8f),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -521,7 +476,7 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Account & Reset Actions Card
+                // Achieved Goals (Trophy Cabinet / Stored in Phone)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -529,8 +484,224 @@ fun ProfileScreen(
                         .border(1.dp, CardBorderWhite, RoundedCornerShape(24.dp))
                         .padding(20.dp)
                 ) {
-                    Text(text = "Account & Data Controls", color = TextWhite, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(CardDarkElevated, CircleShape)
+                                    .border(1.dp, Color(0xFF10B981).copy(alpha = 0.6f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.MilitaryTech,
+                                    contentDescription = "Achieved",
+                                    tint = Color(0xFF10B981),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Achieved Goals (${achievedGoals.size})",
+                                    color = TextWhite,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                                Text(
+                                    text = "Milestones Conquered & Saved",
+                                    color = TextGray,
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(14.dp))
+
+                    if (achievedGoals.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(CardDarkElevated, RoundedCornerShape(14.dp))
+                                .border(1.dp, CardBorderWhite, RoundedCornerShape(14.dp))
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(text = "No achieved goals yet", color = TextWhite, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(text = "Complete your active goals above to add them here!", color = TextGray, fontSize = 11.sp, maxLines = 1)
+                            }
+                        }
+                    } else {
+                        achievedGoals.forEach { goal ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .background(CardDarkElevated, RoundedCornerShape(16.dp))
+                                    .border(1.dp, Color(0xFF10B981).copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(text = "✓", color = Color(0xFF10B981), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = goal.title,
+                                            color = TextWhite,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Achieved: ${goal.targetValue} ${goal.unit}",
+                                        color = TextSilver,
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .background(CardDark, RoundedCornerShape(8.dp))
+                                            .border(1.dp, Color(0xFF10B981), RoundedCornerShape(8.dp))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(text = "Achieved", color = Color(0xFF10B981), fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                                    }
+
+                                    Spacer(modifier = Modifier.width(6.dp))
+
+                                    IconButton(
+                                        onClick = { achievedGoalToDelete = goal },
+                                        modifier = Modifier.size(30.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete Achieved Goal",
+                                            tint = DangerRed.copy(alpha = 0.8f),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Display & Ambient Aurora Glow Animation Toggle Card
+                val isGlowAnimationActive by com.example.fittrack.presentation.components.BackgroundAnimationManager.isGlowEnabled.collectAsState()
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(CardDark, RoundedCornerShape(24.dp))
+                        .border(1.dp, CardBorderWhite, RoundedCornerShape(24.dp))
+                        .padding(20.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .background(CardDarkElevated, CircleShape)
+                                    .border(1.dp, if (isGlowAnimationActive) Color(0xFF00F2FE).copy(alpha = 0.5f) else CardBorderWhite, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.TrackChanges,
+                                    contentDescription = "Aurora Glow",
+                                    tint = if (isGlowAnimationActive) Color(0xFF00F2FE) else TextGray,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Ambient Aurora Glow",
+                                    color = TextWhite,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (isGlowAnimationActive) "Calm breathing aurora waves enabled" else "Solid pure AMOLED dark mode",
+                                    color = TextGray,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+
+                        // Toggle Switch Pill
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    if (isGlowAnimationActive) Color(0xFF00F2FE) else CardDarkElevated,
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .border(
+                                    1.dp,
+                                    if (isGlowAnimationActive) Color(0xFF00F2FE) else CardBorderWhite,
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .clickable {
+                                    com.example.fittrack.presentation.components.BackgroundAnimationManager.setGlowEnabled(!isGlowAnimationActive)
+                                }
+                                .padding(horizontal = 14.dp, vertical = 7.dp)
+                        ) {
+                            Text(
+                                text = if (isGlowAnimationActive) "ON" else "OFF",
+                                color = if (isGlowAnimationActive) CardDark else TextSilver,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Account & Data Persistence Controls
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(CardDark, RoundedCornerShape(24.dp))
+                        .border(1.dp, CardBorderWhite, RoundedCornerShape(24.dp))
+                        .padding(20.dp)
+                ) {
+                    Text(text = "Data Persistence & Reset Options", color = TextWhite, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "All workouts, steps, logs, goals, and stats are saved permanently on this device until you explicitly reset them.",
+                        color = TextGray,
+                        fontSize = 12.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -545,7 +716,7 @@ fun ProfileScreen(
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(text = "Reset Profile Info", color = DangerRed, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(text = "Reset Profile Info", color = DangerRed, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                         }
 
                         Box(
@@ -553,19 +724,140 @@ fun ProfileScreen(
                                 .weight(1f)
                                 .background(CardDarkElevated, RoundedCornerShape(14.dp))
                                 .border(1.dp, DangerRed.copy(alpha = 0.6f), RoundedCornerShape(14.dp))
-                                .clickable { showResetAllDataDialog = true }
+                                .clickable { showResetAllDataConfirmDialog = true }
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(text = "Erase All History", color = DangerRed, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(text = "Erase All History", color = DangerRed, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // About FitTrack & Developer Credits
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(CardDark, RoundedCornerShape(24.dp))
+                        .border(1.dp, CardBorderWhite, RoundedCornerShape(24.dp))
+                        .padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "FitTrack v2.0 • AMOLED Performance Edition",
+                        color = TextWhite,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "Designed & Developed by Animesh Verma",
+                        color = Color(0xFF00FFA3),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Text(
+                        text = "Computer Science Student & Android Developer",
+                        color = TextSilver,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(CardDarkElevated, RoundedCornerShape(14.dp))
+                            .border(1.dp, CardBorderActive.copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
+                        Column {
+                            Text(
+                                text = "⚡ Engineering & Tech Stack",
+                                color = TextWhite,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "• Pure Kotlin & Jetpack Compose declarative UI\n• Local Room Database with zero-bloat offline persistence\n• Hardware Step Sensor foreground tracking service\n• Strict workout volume & stopwatch analytics engine",
+                                color = TextGray,
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Direct Send Feedback Button to animeshv063@gmail.com
+                    val context = LocalContext.current
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(Color(0xFF00F2FE), Color(0xFF00FFA3))
+                                ),
+                                RoundedCornerShape(16.dp)
+                            )
+                            .clickable {
+                                try {
+                                    val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                                        data = Uri.parse("mailto:animeshv063@gmail.com")
+                                        putExtra(Intent.EXTRA_SUBJECT, "FitTrack App Feedback & Suggestions")
+                                    }
+                                    context.startActivity(emailIntent)
+                                } catch (e: Exception) {
+                                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "message/rfc822"
+                                        putExtra(Intent.EXTRA_EMAIL, arrayOf("animeshv063@gmail.com"))
+                                        putExtra(Intent.EXTRA_SUBJECT, "FitTrack App Feedback")
+                                    }
+                                    context.startActivity(Intent.createChooser(sendIntent, "Send Feedback via Email"))
+                                }
+                            }
+                            .padding(vertical = 14.dp, horizontal = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Rounded.Email,
+                                contentDescription = "Email Feedback",
+                                tint = CardDark,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Send Feedback (animeshv063@gmail.com)",
+                                color = CardDark,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(110.dp))
             }
         }
     }
 
-    // WhatsApp-Style Circular Photo Crop Selector Modal
+    // Gift Burst Celebration Animation Dialog
+    celebratingGoal?.let { goal ->
+        GiftBurstDialog(
+            goalTitle = goal.title,
+            goalTarget = "${goal.targetValue} ${goal.unit}",
+            onDismiss = { celebratingGoal = null }
+        )
+    }
+
+    // Circular Photo Crop Modal
     if (showCircularCropDialog && tempPhotoUri != null) {
         Dialog(onDismissRequest = { showCircularCropDialog = false }) {
             val density = LocalDensity.current
@@ -590,14 +882,13 @@ fun ProfileScreen(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Drag & zoom photo inside the circular stencil",
+                    text = "Drag & zoom photo inside circular mask",
                     color = TextGray,
                     fontSize = 12.sp
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Circular Canvas Mask Area
                 Box(
                     modifier = Modifier
                         .size(240.dp)
@@ -649,44 +940,6 @@ fun ProfileScreen(
                             center = circleCenter,
                             style = Stroke(width = 2.dp.toPx())
                         )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .background(CardDarkElevated, CircleShape)
-                            .border(1.dp, CardBorderWhite, CircleShape)
-                            .clickable { scale = (scale - 0.2f).coerceAtLeast(0.5f) }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text("- Zoom Out", color = TextSilver, fontSize = 12.sp)
-                    }
-                    Box(
-                        modifier = Modifier
-                            .background(CardDarkElevated, CircleShape)
-                            .border(1.dp, CardBorderWhite, CircleShape)
-                            .clickable {
-                                scale = 1f
-                                offset = Offset.Zero
-                            }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text("Reset", color = TextSilver, fontSize = 12.sp)
-                    }
-                    Box(
-                        modifier = Modifier
-                            .background(CardDarkElevated, CircleShape)
-                            .border(1.dp, CardBorderWhite, CircleShape)
-                            .clickable { scale = (scale + 0.2f).coerceAtMost(4f) }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text("+ Zoom In", color = TextSilver, fontSize = 12.sp)
                     }
                 }
 
@@ -743,7 +996,7 @@ fun ProfileScreen(
                         onValueChange = { editName = it },
                         label = { Text("Full Name") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CardBorderActive,
+                            focusedBorderColor = TextWhite,
                             unfocusedBorderColor = CardBorderWhite,
                             focusedLabelColor = TextWhite,
                             unfocusedLabelColor = TextGray,
@@ -758,7 +1011,7 @@ fun ProfileScreen(
                         onValueChange = { editGender = it },
                         label = { Text("Gender (Male / Female / Other)") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CardBorderActive,
+                            focusedBorderColor = TextWhite,
                             unfocusedBorderColor = CardBorderWhite,
                             focusedLabelColor = TextWhite,
                             unfocusedLabelColor = TextGray,
@@ -773,7 +1026,7 @@ fun ProfileScreen(
                         onValueChange = { editWeight = it },
                         label = { Text("Weight (kg)") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CardBorderActive,
+                            focusedBorderColor = TextWhite,
                             unfocusedBorderColor = CardBorderWhite,
                             focusedLabelColor = TextWhite,
                             unfocusedLabelColor = TextGray,
@@ -788,7 +1041,7 @@ fun ProfileScreen(
                         onValueChange = { editHeight = it },
                         label = { Text("Height (cm)") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CardBorderActive,
+                            focusedBorderColor = TextWhite,
                             unfocusedBorderColor = CardBorderWhite,
                             focusedLabelColor = TextWhite,
                             unfocusedLabelColor = TextGray,
@@ -800,10 +1053,25 @@ fun ProfileScreen(
                     Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
                         value = editStepGoal,
-                        onValueChange = { editStepGoal = it },
+                        onValueChange = { editStepGoal = it.filter { c -> c.isDigit() } },
                         label = { Text("Daily Step Target") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CardBorderActive,
+                            focusedBorderColor = TextWhite,
+                            unfocusedBorderColor = CardBorderWhite,
+                            focusedLabelColor = TextWhite,
+                            unfocusedLabelColor = TextGray,
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = editWaterGoal,
+                        onValueChange = { editWaterGoal = it.filter { c -> c.isDigit() } },
+                        label = { Text("Daily Water Target (ml)") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = TextWhite,
                             unfocusedBorderColor = CardBorderWhite,
                             focusedLabelColor = TextWhite,
                             unfocusedLabelColor = TextGray,
@@ -820,6 +1088,7 @@ fun ProfileScreen(
                         val weight = editWeight.toFloatOrNull() ?: 0f
                         val height = editHeight.toFloatOrNull() ?: 0f
                         val stepGoal = editStepGoal.toIntOrNull() ?: 10000
+                        val waterGoal = editWaterGoal.toIntOrNull() ?: 3000
 
                         viewModel.saveUserProfile(
                             currentProfile.copy(
@@ -827,7 +1096,8 @@ fun ProfileScreen(
                                 gender = editGender.ifBlank { "Male" },
                                 weightKg = weight,
                                 heightCm = height,
-                                stepGoal = stepGoal
+                                stepGoal = stepGoal,
+                                waterGoalMl = waterGoal
                             )
                         )
                         showEditProfileDialog = false
@@ -859,7 +1129,7 @@ fun ProfileScreen(
                         onValueChange = { goalTitleInput = it },
                         label = { Text("Goal Name (e.g. Bench 100kg)") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CardBorderActive,
+                            focusedBorderColor = TextWhite,
                             unfocusedBorderColor = CardBorderWhite,
                             focusedLabelColor = TextWhite,
                             unfocusedLabelColor = TextGray,
@@ -871,10 +1141,10 @@ fun ProfileScreen(
                     Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
                         value = goalTargetInput,
-                        onValueChange = { goalTargetInput = it },
+                        onValueChange = { goalTargetInput = it.filter { c -> c.isDigit() || c == '.' } },
                         label = { Text("Target Value (e.g. 100)") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CardBorderActive,
+                            focusedBorderColor = TextWhite,
                             unfocusedBorderColor = CardBorderWhite,
                             focusedLabelColor = TextWhite,
                             unfocusedLabelColor = TextGray,
@@ -889,7 +1159,7 @@ fun ProfileScreen(
                         onValueChange = { goalUnitInput = it },
                         label = { Text("Unit (e.g. kg, reps, km)") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CardBorderActive,
+                            focusedBorderColor = TextWhite,
                             unfocusedBorderColor = CardBorderWhite,
                             focusedLabelColor = TextWhite,
                             unfocusedLabelColor = TextGray,
@@ -907,7 +1177,7 @@ fun ProfileScreen(
                         if (goalTitleInput.isNotBlank() && target > 0.0) {
                             viewModel.addGoal(
                                 GoalEntity(
-                                    title = goalTitleInput,
+                                    title = goalTitleInput.trim(),
                                     targetValue = target,
                                     unit = goalUnitInput.ifBlank { "units" }
                                 )
@@ -929,7 +1199,7 @@ fun ProfileScreen(
         )
     }
 
-    // Delete Goal Dialog
+    // Delete Active Goal Confirmation Dialog
     goalToDelete?.let { goal ->
         AlertDialog(
             onDismissRequest = { goalToDelete = null },
@@ -937,7 +1207,7 @@ fun ProfileScreen(
             titleContentColor = TextWhite,
             textContentColor = TextSilver,
             title = { Text("Delete Goal?", fontWeight = FontWeight.Bold) },
-            text = { Text("Are you sure you want to remove '${goal.title}'?") },
+            text = { Text("Remove goal '${goal.title}'?") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -945,7 +1215,7 @@ fun ProfileScreen(
                         goalToDelete = null
                     }
                 ) {
-                    Text("Delete", color = DangerRed)
+                    Text("Delete", color = DangerRed, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -956,15 +1226,43 @@ fun ProfileScreen(
         )
     }
 
-    // Reset Profile Dialog
+    // Delete Achieved Goal Confirmation Dialog
+    achievedGoalToDelete?.let { goal ->
+        AlertDialog(
+            onDismissRequest = { achievedGoalToDelete = null },
+            containerColor = CardDark,
+            titleContentColor = TextWhite,
+            textContentColor = TextSilver,
+            title = { Text("Remove Achieved Milestone?", fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to remove '${goal.title}' from your achieved milestones?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteGoal(goal)
+                        achievedGoalToDelete = null
+                    }
+                ) {
+                    Text("Remove", color = DangerRed, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { achievedGoalToDelete = null }) {
+                    Text("Cancel", color = TextGray)
+                }
+            }
+        )
+    }
+
+    // Reset Profile Dialog (Requires Confirmation)
     if (showResetProfileDialog) {
         AlertDialog(
             onDismissRequest = { showResetProfileDialog = false },
             containerColor = CardDark,
             titleContentColor = TextWhite,
             textContentColor = TextSilver,
+            icon = { Icon(imageVector = Icons.Rounded.Warning, contentDescription = null, tint = DangerRed) },
             title = { Text("Reset Profile Details?", fontWeight = FontWeight.Bold) },
-            text = { Text("Reset name, weight, height, and step goal back to default values?") },
+            text = { Text("Are you sure? This will reset your name, weight, height, and step target to defaults.") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -972,7 +1270,7 @@ fun ProfileScreen(
                         showResetProfileDialog = false
                     }
                 ) {
-                    Text("Reset Profile", color = DangerRed)
+                    Text("Confirm Profile Reset", color = DangerRed, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -983,27 +1281,37 @@ fun ProfileScreen(
         )
     }
 
-    // Reset All Data Dialog
-    if (showResetAllDataDialog) {
+    // Erase All History Dialog (Requires Explicit Confirmation)
+    if (showResetAllDataConfirmDialog) {
         AlertDialog(
-            onDismissRequest = { showResetAllDataDialog = false },
+            onDismissRequest = { showResetAllDataConfirmDialog = false },
             containerColor = CardDark,
             titleContentColor = TextWhite,
             textContentColor = TextSilver,
-            title = { Text("Reset All Fitness History?", fontWeight = FontWeight.Bold) },
-            text = { Text("This will erase all logged workouts, exercises, goals, PRs, and hydration data from phone memory.") },
+            icon = { Icon(imageVector = Icons.Rounded.Warning, contentDescription = null, tint = DangerRed) },
+            title = { Text("Confirm Erase All Data?", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("This action CANNOT be undone.", color = DangerRed, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("All logged workouts, exercises, step history, personal records, active/achieved goals, and hydration logs will be erased from local phone storage.")
+                }
+            },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.resetAllData()
-                        showResetAllDataDialog = false
-                    }
+                Box(
+                    modifier = Modifier
+                        .background(DangerRed, RoundedCornerShape(12.dp))
+                        .clickable {
+                            viewModel.resetAllData()
+                            showResetAllDataConfirmDialog = false
+                        }
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
                 ) {
-                    Text("Reset Everything", color = DangerRed)
+                    Text("CONFIRM DATA RESET", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showResetAllDataDialog = false }) {
+                TextButton(onClick = { showResetAllDataConfirmDialog = false }) {
                     Text("Cancel", color = TextGray)
                 }
             }
@@ -1034,7 +1342,6 @@ private fun saveCroppedProfileImage(
             android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.FILTER_BITMAP_FLAG
         )
 
-        // Step 1: match ContentScale.Fit inside the crop viewport
         val fittedBitmap = android.graphics.Bitmap.createBitmap(
             containerSize,
             containerSize,
@@ -1053,7 +1360,6 @@ private fun saveCroppedProfileImage(
         }
         fittedCanvas.drawBitmap(originalBitmap, fitMatrix, paint)
 
-        // Step 2: match graphicsLayer zoom/pan (scale around viewport center, then translate)
         val viewportBitmap = android.graphics.Bitmap.createBitmap(
             containerSize,
             containerSize,
@@ -1067,7 +1373,6 @@ private fun saveCroppedProfileImage(
         }
         viewportCanvas.drawBitmap(fittedBitmap, viewMatrix, paint)
 
-        // Step 3: crop exactly what sits inside the circular stencil
         val cropLeft = (center - circleRadius).toInt().coerceIn(0, containerSize - circleDiameter)
         val cropTop = (center - circleRadius).toInt().coerceIn(0, containerSize - circleDiameter)
         val squareCrop = android.graphics.Bitmap.createBitmap(

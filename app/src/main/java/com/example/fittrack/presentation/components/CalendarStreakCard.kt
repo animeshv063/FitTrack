@@ -1,11 +1,13 @@
 package com.example.fittrack.presentation.components
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,7 +25,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -35,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -44,6 +49,8 @@ import com.example.fittrack.presentation.theme.CardBorderActive
 import com.example.fittrack.presentation.theme.CardBorderWhite
 import com.example.fittrack.presentation.theme.CardDark
 import com.example.fittrack.presentation.theme.CardDarkElevated
+import com.example.fittrack.presentation.theme.NeonCyan
+import com.example.fittrack.presentation.theme.NeonTeal
 import com.example.fittrack.presentation.theme.TextGray
 import com.example.fittrack.presentation.theme.TextSilver
 import com.example.fittrack.presentation.theme.TextWhite
@@ -58,6 +65,7 @@ fun CalendarStreakCard(
     modifier: Modifier = Modifier
 ) {
     var calendarMonthOffset by remember { mutableStateOf(0) }
+    var selectedDateKey by remember { mutableStateOf<String?>(null) }
 
     val calendar = remember(calendarMonthOffset) {
         Calendar.getInstance().apply {
@@ -84,8 +92,10 @@ fun CalendarStreakCard(
     val todayCal = Calendar.getInstance()
     val isCurrentMonthDisplayed = calendarMonthOffset == 0
 
+    val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+    val displayDateSdf = remember { SimpleDateFormat("EEEE, MMM d", Locale.getDefault()) }
+
     val workoutDateSet = remember(workouts) {
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         workouts.filter { it.completed }.map {
             sdf.format(Date(it.date))
         }.toSet()
@@ -96,6 +106,24 @@ fun CalendarStreakCard(
 
     val streakCount = remember(workouts) {
         calculateCurrentStreak(workouts)
+    }
+
+    // Workouts for selected inspected date
+    val selectedDayWorkouts = remember(workouts, selectedDateKey) {
+        if (selectedDateKey == null) emptyList()
+        else workouts.filter { it.completed && sdf.format(Date(it.date)) == selectedDateKey }
+    }
+
+    val selectedDayFormattedText = remember(selectedDateKey) {
+        if (selectedDateKey == null) ""
+        else {
+            try {
+                val parsed = sdf.parse(selectedDateKey!!)
+                if (parsed != null) displayDateSdf.format(parsed) else selectedDateKey!!
+            } catch (e: Exception) {
+                selectedDateKey!!
+            }
+        }
     }
 
     Column(
@@ -138,7 +166,7 @@ fun CalendarStreakCard(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Monthly Consistency",
+                        text = "Tap any date to inspect training",
                         color = TextGray,
                         fontSize = 12.sp
                     )
@@ -149,21 +177,21 @@ fun CalendarStreakCard(
 
             Box(
                 modifier = Modifier
-                    .background(CardDarkElevated, RoundedCornerShape(14.dp))
-                    .border(1.dp, CardBorderActive, RoundedCornerShape(14.dp))
+                    .background(Color(0xFFFBBF24).copy(alpha = 0.12f), RoundedCornerShape(14.dp))
+                    .border(1.dp, Color(0xFFFBBF24).copy(alpha = 0.4f), RoundedCornerShape(14.dp))
                     .padding(horizontal = 10.dp, vertical = 6.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Rounded.Star,
                         contentDescription = "Streak",
-                        tint = TextWhite,
+                        tint = Color(0xFFFBBF24),
                         modifier = Modifier.size(15.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "$streakCount Days Streak",
-                        color = TextWhite,
+                        color = Color(0xFFFBBF24),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -173,7 +201,7 @@ fun CalendarStreakCard(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Month Selector Header (Allows Navigating Prev & Next freely)
+        // Month Selector Header
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -259,6 +287,7 @@ fun CalendarStreakCard(
                             val dayKey = String.format(Locale.US, "%s-%02d", currentMonthKey, dayNum)
                             val isWorkoutDone = workoutDateSet.contains(dayKey)
                             val isToday = isCurrentMonthDisplayed && dayNum == todayCal.get(Calendar.DAY_OF_MONTH)
+                            val isSelected = selectedDateKey == dayKey
 
                             Box(
                                 modifier = Modifier
@@ -267,43 +296,124 @@ fun CalendarStreakCard(
                                     .clip(CircleShape)
                                     .background(
                                         when {
-                                            isWorkoutDone -> CardDarkElevated
-                                            isToday -> CardDarkElevated
+                                            isSelected -> NeonCyan.copy(alpha = 0.25f)
+                                            isWorkoutDone -> NeonTeal.copy(alpha = 0.14f)
+                                            isToday -> Color(0xFF00F2FE).copy(alpha = 0.12f)
                                             else -> CardDark
                                         }
                                     )
                                     .border(
-                                        width = 1.dp,
+                                        width = if (isSelected) 2.dp else 1.dp,
                                         color = when {
-                                            isWorkoutDone -> TextWhite
-                                            isToday -> CardBorderActive
-                                            else -> CardBorderWhite.copy(alpha = 0.3f)
+                                            isSelected -> NeonCyan
+                                            isWorkoutDone -> NeonTeal.copy(alpha = 0.8f)
+                                            isToday -> Color(0xFF00F2FE)
+                                            else -> CardBorderWhite.copy(alpha = 0.25f)
                                         },
                                         shape = CircleShape
-                                    ),
+                                    )
+                                    .clickable {
+                                        selectedDateKey = if (selectedDateKey == dayKey) null else dayKey
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
                                         text = "$dayNum",
                                         color = when {
-                                            isWorkoutDone -> TextWhite
-                                            isToday -> TextWhite
+                                            isSelected -> NeonCyan
+                                            isWorkoutDone -> NeonTeal
+                                            isToday -> Color(0xFF00F2FE)
                                             else -> TextGray
                                         },
                                         fontSize = 11.sp,
-                                        fontWeight = if (isWorkoutDone || isToday) FontWeight.Bold else FontWeight.Normal
+                                        fontWeight = if (isWorkoutDone || isToday || isSelected) FontWeight.Bold else FontWeight.Normal
                                     )
 
                                     if (isWorkoutDone) {
                                         Box(
                                             modifier = Modifier
                                                 .size(3.5.dp)
-                                                .background(TextWhite, CircleShape)
+                                                .background(if (isSelected) NeonCyan else NeonTeal, CircleShape)
                                         )
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Selected Date Training Details Panel
+        AnimatedVisibility(visible = selectedDateKey != null) {
+            val totalMins = selectedDayWorkouts.sumOf { it.duration }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 14.dp)
+                    .background(CardDarkElevated, RoundedCornerShape(16.dp))
+                    .border(1.dp, if (selectedDayWorkouts.isNotEmpty()) NeonTeal.copy(alpha = 0.5f) else CardBorderWhite, RoundedCornerShape(16.dp))
+                    .padding(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = selectedDayFormattedText,
+                        color = TextWhite,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    if (selectedDayWorkouts.isNotEmpty()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Rounded.Timer,
+                                contentDescription = null,
+                                tint = NeonTeal,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "$totalMins mins trained",
+                                color = NeonTeal,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "Rest Day",
+                            color = TextGray,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+
+                if (selectedDayWorkouts.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    selectedDayWorkouts.forEach { w ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.FitnessCenter,
+                                contentDescription = null,
+                                tint = TextSilver,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "${w.name} (${w.duration} mins)",
+                                color = TextSilver,
+                                fontSize = 12.sp
+                            )
                         }
                     }
                 }

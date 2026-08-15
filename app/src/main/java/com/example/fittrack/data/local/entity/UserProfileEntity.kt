@@ -15,5 +15,6 @@ data class UserProfileEntity(
     val heightCm: Float = 0f,
     val stepGoal: Int = 10000,
     val waterGoalMl: Int = 3000,
-    val calorieGoal: Int = 2500
+    val calorieGoal: Int = 2500,
+    val celebrationAnimationsEnabled: Boolean = true
 )

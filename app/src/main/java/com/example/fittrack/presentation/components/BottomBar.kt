@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -99,7 +100,7 @@ fun BottomNavBar(
                 )
 
                 val iconTint by animateColorAsState(
-                    targetValue = if (selected) TextWhite else TextGray,
+                    targetValue = if (selected) Color(0xFF00FFA3) else TextGray,
                     label = "navTint"
                 )
 
@@ -111,20 +112,32 @@ fun BottomNavBar(
                         }
                         .background(bgColor, RoundedCornerShape(20.dp))
                         .then(
-                            if (selected) Modifier.border(1.dp, CardBorderActive, RoundedCornerShape(20.dp))
+                            if (selected) Modifier.border(1.dp, Color(0xFF00FFA3).copy(alpha = 0.6f), RoundedCornerShape(20.dp))
                             else Modifier
                         )
                         .clickable(
                             interactionSource = interactionSource,
                             indication = null
                         ) {
-                            if (currentRoute != item.route) {
-                                navController.navigate(item.route) {
-                                    popUpTo(Routes.Home.route) {
-                                        saveState = true
+                            if (item.route == Routes.Home.route) {
+                                val popped = navController.popBackStack(Routes.Home.route, inclusive = false)
+                                if (!popped && currentRoute != Routes.Home.route) {
+                                    navController.navigate(Routes.Home.route) {
+                                        popUpTo(navController.graph.startDestinationId) {
+                                            inclusive = false
+                                        }
+                                        launchSingleTop = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
+                                }
+                            } else {
+                                if (currentRoute != item.route) {
+                                    navController.navigate(item.route) {
+                                        popUpTo(Routes.Home.route) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
                                 }
                             }
                         }
@@ -142,9 +155,11 @@ fun BottomNavBar(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = item.title,
-                                color = TextWhite,
+                                color = Color(0xFF00FFA3),
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false
                             )
                         }
                     }

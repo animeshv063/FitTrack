@@ -21,7 +21,7 @@ import com.example.fittrack.data.local.entity.WorkoutEntity
         PersonalRecordEntity::class,
         UserProfileEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class FitTrackDatabase : RoomDatabase() {

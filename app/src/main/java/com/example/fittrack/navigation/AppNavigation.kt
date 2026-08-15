@@ -96,7 +96,8 @@ fun AppNavigation(
                     val workoutId = backStackEntry.arguments?.getInt("id") ?: 0
                     WorkoutDetailScreen(
                         workoutId = workoutId,
-                        viewModel = workoutViewModel
+                        viewModel = workoutViewModel,
+                        navController = navController
                     )
                 }
             }
