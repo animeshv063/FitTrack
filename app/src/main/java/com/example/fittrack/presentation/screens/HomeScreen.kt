@@ -270,7 +270,9 @@ fun HomeScreen(
 
                 // Calendar Streak Heatmap Component
                 CalendarStreakCard(
-                    workouts = workouts
+                    workouts = workouts,
+                    getStepsForDate = { dateKey -> viewModel.getStepsForDate(dateKey) },
+                    todaySteps = steps
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))

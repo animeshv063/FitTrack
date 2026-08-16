@@ -50,18 +50,19 @@ class StepCounterManager(
 
     /**
      * Loads today's persisted steps from disk.
-     * Automatically handles midnight rollover (new day resets today's steps to 0 while saving history).
+     * Automatically handles midnight rollover (new day at 00:00 resets today's steps to 0 while saving history).
      */
     fun loadPersistedSteps() {
         val today = getTodayDateString()
         val savedDate = prefs.getString(KEY_LAST_RECORDED_DATE, today) ?: today
 
         if (savedDate != today) {
-            // Day changed! Store yesterday's steps and reset today's accumulator
+            // Day changed at 00:00! Store yesterday's steps and reset today's accumulator to 0
             val previousDaySteps = prefs.getInt(KEY_TODAY_STEPS, 0)
             prefs.edit()
                 .putInt("steps_$savedDate", previousDaySteps)
                 .putInt(KEY_TODAY_STEPS, 0)
+                .putInt("steps_$today", 0)
                 .putString(KEY_LAST_RECORDED_DATE, today)
                 .putInt(KEY_LAST_SENSOR_READING, -1)
                 .apply()
@@ -102,7 +103,7 @@ class StepCounterManager(
         val today = getTodayDateString()
         val savedDate = prefs.getString(KEY_LAST_RECORDED_DATE, today) ?: today
 
-        // If day changed while app is running, reset for new day
+        // If day changed while app is running (00:00 midnight rollover), reset for new day
         if (savedDate != today) {
             loadPersistedSteps()
         }
@@ -117,6 +118,7 @@ class StepCounterManager(
                 prefs.edit()
                     .putInt(KEY_LAST_SENSOR_READING, rawSensorSteps)
                     .putString(KEY_LAST_RECORDED_DATE, today)
+                    .putInt("steps_$today", currentTodaySteps)
                     .apply()
             } else if (rawSensorSteps < lastSensorReading) {
                 // Device rebooted: sensor counter reset to 0
@@ -130,6 +132,7 @@ class StepCounterManager(
                     _steps.value = currentTodaySteps
                     prefs.edit()
                         .putInt(KEY_TODAY_STEPS, currentTodaySteps)
+                        .putInt("steps_$today", currentTodaySteps)
                         .putInt(KEY_LAST_SENSOR_READING, rawSensorSteps)
                         .putString(KEY_LAST_RECORDED_DATE, today)
                         .apply()
@@ -141,6 +144,7 @@ class StepCounterManager(
                 _steps.value = currentTodaySteps
                 prefs.edit()
                     .putInt(KEY_TODAY_STEPS, currentTodaySteps)
+                    .putInt("steps_$today", currentTodaySteps)
                     .putString(KEY_LAST_RECORDED_DATE, today)
                     .apply()
             }
@@ -150,6 +154,19 @@ class StepCounterManager(
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     /**
+     * Retrieves recorded steps for any specific date in "yyyy-MM-dd" format.
+     */
+    fun getStepsForDate(dateKey: String): Int {
+        loadPersistedSteps()
+        val today = getTodayDateString()
+        return if (dateKey == today) {
+            _steps.value
+        } else {
+            prefs.getInt("steps_$dateKey", 0)
+        }
+    }
+
+    /**
      * Updates today's steps manually as requested by the user.
      */
     fun setManualSteps(newSteps: Int) {
@@ -157,6 +174,7 @@ class StepCounterManager(
         val today = getTodayDateString()
         prefs.edit()
             .putInt(KEY_TODAY_STEPS, sanitized)
+            .putInt("steps_$today", sanitized)
             .putInt(KEY_LAST_SENSOR_READING, -1)
             .putString(KEY_LAST_RECORDED_DATE, today)
             .apply()
@@ -170,6 +188,7 @@ class StepCounterManager(
         val today = getTodayDateString()
         prefs.edit()
             .putInt(KEY_TODAY_STEPS, 0)
+            .putInt("steps_$today", 0)
             .putInt(KEY_LAST_SENSOR_READING, -1)
             .putString(KEY_LAST_RECORDED_DATE, today)
             .apply()

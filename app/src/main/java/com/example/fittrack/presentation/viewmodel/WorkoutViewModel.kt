@@ -43,6 +43,10 @@ class WorkoutViewModel(
         stepCounterManager.setManualSteps(newSteps)
     }
 
+    fun getStepsForDate(dateKey: String): Int {
+        return stepCounterManager.getStepsForDate(dateKey)
+    }
+
     // -------------------------
     // TARGET VOLUME GOAL & CHART SCALE
     // -------------------------

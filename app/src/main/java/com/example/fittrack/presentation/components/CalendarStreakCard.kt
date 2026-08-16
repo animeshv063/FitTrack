@@ -22,8 +22,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.Star
@@ -62,7 +64,9 @@ import java.util.Locale
 @Composable
 fun CalendarStreakCard(
     workouts: List<WorkoutEntity>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    getStepsForDate: (String) -> Int = { 0 },
+    todaySteps: Int = 0
 ) {
     var calendarMonthOffset by remember { mutableStateOf(0) }
     var selectedDateKey by remember { mutableStateOf<String?>(null) }
@@ -94,6 +98,7 @@ fun CalendarStreakCard(
 
     val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
     val displayDateSdf = remember { SimpleDateFormat("EEEE, MMM d", Locale.getDefault()) }
+    val todayKey = remember { sdf.format(Date()) }
 
     val workoutDateSet = remember(workouts) {
         workouts.filter { it.completed }.map {
@@ -112,6 +117,12 @@ fun CalendarStreakCard(
     val selectedDayWorkouts = remember(workouts, selectedDateKey) {
         if (selectedDateKey == null) emptyList()
         else workouts.filter { it.completed && sdf.format(Date(it.date)) == selectedDateKey }
+    }
+
+    val selectedDaySteps = remember(selectedDateKey, todaySteps) {
+        if (selectedDateKey == null) 0
+        else if (selectedDateKey == todayKey) todaySteps
+        else getStepsForDate(selectedDateKey!!)
     }
 
     val selectedDayFormattedText = remember(selectedDateKey) {
@@ -166,7 +177,7 @@ fun CalendarStreakCard(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Tap any date to inspect training",
+                        text = "Tap any date to inspect training & steps",
                         color = TextGray,
                         fontSize = 12.sp
                     )
@@ -345,75 +356,197 @@ fun CalendarStreakCard(
             }
         }
 
-        // Selected Date Training Details Panel
+        // Selected Date Training & Steps Details Panel
         AnimatedVisibility(visible = selectedDateKey != null) {
             val totalMins = selectedDayWorkouts.sumOf { it.duration }
+            val estCalories = (selectedDaySteps * 0.04).toInt()
+            val estDistanceKm = selectedDaySteps * 0.00075
+            val isTodaySelected = selectedDateKey == todayKey
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 14.dp)
-                    .background(CardDarkElevated, RoundedCornerShape(16.dp))
-                    .border(1.dp, if (selectedDayWorkouts.isNotEmpty()) NeonTeal.copy(alpha = 0.5f) else CardBorderWhite, RoundedCornerShape(16.dp))
+                    .background(CardDarkElevated, RoundedCornerShape(18.dp))
+                    .border(1.dp, if (selectedDayWorkouts.isNotEmpty() || selectedDaySteps > 0) NeonTeal.copy(alpha = 0.45f) else CardBorderWhite, RoundedCornerShape(18.dp))
                     .padding(14.dp)
             ) {
+                // Header Date and Status
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = selectedDayFormattedText,
-                        color = TextWhite,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = selectedDayFormattedText,
+                            color = TextWhite,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (isTodaySelected) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .background(NeonCyan.copy(alpha = 0.15f), RoundedCornerShape(6.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "TODAY",
+                                    color = NeonCyan,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
 
-                    if (selectedDayWorkouts.isNotEmpty()) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.Timer,
-                                contentDescription = null,
-                                tint = NeonTeal,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (selectedDayWorkouts.isNotEmpty()) "Workout Done" else "Rest Day",
+                        color = if (selectedDayWorkouts.isNotEmpty()) NeonTeal else TextGray,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Side-by-Side Summary Cards: Time Trained & Steps Recorded
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Time Trained Card
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(CardDark, RoundedCornerShape(14.dp))
+                            .border(1.dp, CardBorderWhite.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+                            .padding(10.dp)
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Timer,
+                                    contentDescription = "Time Trained",
+                                    tint = NeonTeal,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text(
+                                    text = "Time Trained",
+                                    color = TextGray,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "$totalMins mins trained",
-                                color = NeonTeal,
-                                fontSize = 12.sp,
+                                text = if (totalMins > 0) "$totalMins mins" else "0 mins",
+                                color = if (totalMins > 0) NeonTeal else TextWhite,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                            Text(
+                                text = if (selectedDayWorkouts.isNotEmpty()) "${selectedDayWorkouts.size} workout${if (selectedDayWorkouts.size > 1) "s" else ""}" else "Rest day",
+                                color = TextSilver,
+                                fontSize = 10.sp
+                            )
                         }
-                    } else {
-                        Text(
-                            text = "Rest Day",
-                            color = TextGray,
-                            fontSize = 12.sp
-                        )
+                    }
+
+                    // Steps Recorded Card
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(CardDark, RoundedCornerShape(14.dp))
+                            .border(1.dp, CardBorderWhite.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+                            .padding(10.dp)
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.DirectionsWalk,
+                                    contentDescription = "Steps Logged",
+                                    tint = NeonCyan,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text(
+                                    text = "Steps Logged",
+                                    color = TextGray,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = String.format(Locale.US, "%,d", selectedDaySteps),
+                                color = NeonCyan,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "~$estCalories kcal • ${String.format(Locale.US, "%.2f", estDistanceKm)} km",
+                                color = TextSilver,
+                                fontSize = 10.sp
+                            )
+                        }
                     }
                 }
 
+                // Workouts List (if any completed)
                 if (selectedDayWorkouts.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Completed Sessions",
+                        color = TextGray,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
                     selectedDayWorkouts.forEach { w ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(vertical = 3.dp)
+                                .background(CardDark.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Icon(
-                                imageVector = Icons.Rounded.FitnessCenter,
-                                contentDescription = null,
-                                tint = TextSilver,
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "${w.name} (${w.duration} mins)",
-                                color = TextSilver,
-                                fontSize = 12.sp
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.FitnessCenter,
+                                    contentDescription = null,
+                                    tint = NeonTeal,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = w.name,
+                                    color = TextWhite,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "${w.duration} min",
+                                    color = TextSilver,
+                                    fontSize = 11.sp
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.Rounded.CheckCircle,
+                                    contentDescription = "Completed",
+                                    tint = NeonTeal,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
                         }
                     }
                 }

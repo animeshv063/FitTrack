@@ -106,5 +106,16 @@ class StepTrackerService : Service() {
                 e.printStackTrace()
             }
         }
+
+        fun stopService(context: Context) {
+            try {
+                val intent = Intent(context, StepTrackerService::class.java)
+                context.stopService(intent)
+                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                manager?.cancel(NOTIFICATION_ID)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 }
