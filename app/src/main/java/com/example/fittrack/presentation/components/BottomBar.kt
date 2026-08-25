@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -53,6 +56,21 @@ private data class NavItem(
     val route: String
 )
 
+/**
+ * Adds bottom padding only for 3-button navigation (~48dp inset).
+ * Gesture navigation uses a smaller inset and keeps the existing full-screen look.
+ */
+@Composable
+private fun Modifier.threeButtonNavigationPadding(): Modifier {
+    val navigationBarBottomInset =
+        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    return if (navigationBarBottomInset >= 40.dp) {
+        padding(bottom = navigationBarBottomInset)
+    } else {
+        this
+    }
+}
+
 @Composable
 fun BottomNavBar(
     navController: NavController
@@ -71,6 +89,7 @@ fun BottomNavBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .threeButtonNavigationPadding()
             .padding(horizontal = 10.dp, vertical = 12.dp)
     ) {
         Row(
