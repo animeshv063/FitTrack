@@ -65,7 +65,7 @@ class MainActivity : ComponentActivity() {
 
     private fun startApp() {
         val database = FitTrackDatabase.getDatabase(this)
-        val stepCounterManager = StepCounterManager(this)
+        val stepCounterManager = StepCounterManager.getInstance(this)
         val repository = WorkoutRepository(database.workoutDao())
         val factory = WorkoutViewModelFactory(repository, stepCounterManager)
 

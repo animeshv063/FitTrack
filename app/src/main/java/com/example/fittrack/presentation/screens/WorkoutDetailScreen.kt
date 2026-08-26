@@ -159,6 +159,10 @@ fun WorkoutDetailScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.checkAndPerformDailyRollover(context)
+    }
+
     // Live session stopwatch loop: Only ticks while session is active
     LaunchedEffect(isSessionActive) {
         while (isSessionActive) {

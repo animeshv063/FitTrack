@@ -15,18 +15,20 @@ import java.util.Locale
 
 /**
  * StepCounterManager
- * Robust, persistent step tracker that counts daily steps continuously without resetting on app close.
- * Saves accumulated steps and sensor baselines in persistent storage.
+ * Robust, thread-safe, battery-optimized Singleton step tracker.
+ * Counts daily steps continuously with clean midnight rollover and isolated historical archives.
  */
-class StepCounterManager(
-    private val context: Context
+class StepCounterManager private constructor(
+    context: Context
 ) : SensorEventListener {
 
+    private val appContext: Context = context.applicationContext
+
     private val prefs: SharedPreferences =
-        context.getSharedPreferences("fittrack_step_prefs", Context.MODE_PRIVATE)
+        appContext.getSharedPreferences("fittrack_step_prefs", Context.MODE_PRIVATE)
 
     private val sensorManager =
-        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        appContext.getSystemService(Context.SENSOR_SERVICE) as SensorManager
 
     private val stepSensor: Sensor? =
         sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
@@ -37,6 +39,7 @@ class StepCounterManager(
     private val _steps = MutableStateFlow(0)
     val steps: StateFlow<Int> = _steps.asStateFlow()
 
+    @Volatile
     private var isListening = false
 
     init {
@@ -44,20 +47,30 @@ class StepCounterManager(
     }
 
     private fun getTodayDateString(): String {
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         return sdf.format(Date())
     }
 
     /**
      * Loads today's persisted steps from disk.
-     * Automatically handles midnight rollover (new day at 00:00 resets today's steps to 0 while saving history).
+     * Automatically handles midnight rollover (new day at 00:00 resets today's steps to 0 while archiving previous day).
      */
+    @Synchronized
     fun loadPersistedSteps() {
         val today = getTodayDateString()
-        val savedDate = prefs.getString(KEY_LAST_RECORDED_DATE, today) ?: today
+        val savedDate = prefs.getString(KEY_LAST_RECORDED_DATE, null)
 
-        if (savedDate != today) {
-            // Day changed at 00:00! Store yesterday's steps and reset today's accumulator to 0
+        if (savedDate == null) {
+            // First run or initial state: record today's date cleanly
+            val savedSteps = prefs.getInt(KEY_TODAY_STEPS, 0)
+            prefs.edit()
+                .putString(KEY_LAST_RECORDED_DATE, today)
+                .putInt(KEY_TODAY_STEPS, savedSteps)
+                .putInt("steps_$today", savedSteps)
+                .apply()
+            _steps.value = savedSteps
+        } else if (savedDate != today) {
+            // Day changed at 00:00! Archive previous day's steps and reset today's accumulator to 0
             val previousDaySteps = prefs.getInt(KEY_TODAY_STEPS, 0)
             prefs.edit()
                 .putInt("steps_$savedDate", previousDaySteps)
@@ -73,23 +86,26 @@ class StepCounterManager(
         }
     }
 
+    @Synchronized
     fun start() {
         if (isListening) return
         loadPersistedSteps()
 
+        // Use SENSOR_DELAY_NORMAL for optimal battery and CPU efficiency
         stepSensor?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
             isListening = true
             return
         }
 
         // Fallback for devices/emulators with step detector
         stepDetectorSensor?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
             isListening = true
         }
     }
 
+    @Synchronized
     fun stop() {
         if (isListening) {
             sensorManager.unregisterListener(this)
@@ -97,11 +113,12 @@ class StepCounterManager(
         }
     }
 
+    @Synchronized
     override fun onSensorChanged(event: SensorEvent?) {
         event ?: return
 
         val today = getTodayDateString()
-        val savedDate = prefs.getString(KEY_LAST_RECORDED_DATE, today) ?: today
+        val savedDate = prefs.getString(KEY_LAST_RECORDED_DATE, null)
 
         // If day changed while app is running (00:00 midnight rollover), reset for new day
         if (savedDate != today) {
@@ -114,10 +131,11 @@ class StepCounterManager(
             var currentTodaySteps = prefs.getInt(KEY_TODAY_STEPS, 0)
 
             if (lastSensorReading == -1) {
-                // First event received for this session/day
+                // First event received for this session/day: establish sensor baseline
                 prefs.edit()
                     .putInt(KEY_LAST_SENSOR_READING, rawSensorSteps)
                     .putString(KEY_LAST_RECORDED_DATE, today)
+                    .putInt(KEY_TODAY_STEPS, currentTodaySteps)
                     .putInt("steps_$today", currentTodaySteps)
                     .apply()
             } else if (rawSensorSteps < lastSensorReading) {
@@ -156,6 +174,7 @@ class StepCounterManager(
     /**
      * Retrieves recorded steps for any specific date in "yyyy-MM-dd" format.
      */
+    @Synchronized
     fun getStepsForDate(dateKey: String): Int {
         loadPersistedSteps()
         val today = getTodayDateString()
@@ -169,6 +188,7 @@ class StepCounterManager(
     /**
      * Updates today's steps manually as requested by the user.
      */
+    @Synchronized
     fun setManualSteps(newSteps: Int) {
         val sanitized = newSteps.coerceAtLeast(0)
         val today = getTodayDateString()
@@ -184,6 +204,7 @@ class StepCounterManager(
     /**
      * Resets the persisted step tracking data upon user confirmation.
      */
+    @Synchronized
     fun resetSteps() {
         val today = getTodayDateString()
         prefs.edit()
@@ -199,5 +220,14 @@ class StepCounterManager(
         private const val KEY_TODAY_STEPS = "key_today_steps"
         private const val KEY_LAST_SENSOR_READING = "key_last_sensor_reading"
         private const val KEY_LAST_RECORDED_DATE = "key_last_recorded_date"
+
+        @Volatile
+        private var INSTANCE: StepCounterManager? = null
+
+        fun getInstance(context: Context): StepCounterManager {
+            return INSTANCE ?: synchronized(this) {
+                INSTANCE ?: StepCounterManager(context.applicationContext).also { INSTANCE = it }
+            }
+        }
     }
 }

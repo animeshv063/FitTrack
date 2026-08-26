@@ -96,9 +96,9 @@ fun CalendarStreakCard(
     val todayCal = Calendar.getInstance()
     val isCurrentMonthDisplayed = calendarMonthOffset == 0
 
-    val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+    val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
     val displayDateSdf = remember { SimpleDateFormat("EEEE, MMM d", Locale.getDefault()) }
-    val todayKey = remember { sdf.format(Date()) }
+    val todayKey = remember(todayCal.get(Calendar.DAY_OF_YEAR)) { sdf.format(Date()) }
 
     val workoutDateSet = remember(workouts) {
         workouts.filter { it.completed }.map {
@@ -106,7 +106,7 @@ fun CalendarStreakCard(
         }.toSet()
     }
 
-    val monthSdf = SimpleDateFormat("yyyy-MM", Locale.getDefault())
+    val monthSdf = SimpleDateFormat("yyyy-MM", Locale.US)
     val currentMonthKey = monthSdf.format(calendar.time)
 
     val streakCount = remember(workouts) {
@@ -559,7 +559,7 @@ private fun calculateCurrentStreak(workouts: List<WorkoutEntity>): Int {
     val completedWorkouts = workouts.filter { it.completed }
     if (completedWorkouts.isEmpty()) return 0
 
-    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     val dates = completedWorkouts.map {
         sdf.format(Date(it.date))
     }.distinct().sortedDescending()

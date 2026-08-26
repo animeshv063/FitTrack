@@ -97,7 +97,7 @@ fun HomeScreen(
     var showStepGoalCelebrationDialog by remember { mutableStateOf(false) }
 
     val todayDateString = remember {
-        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
     }
 
     var visible by remember { mutableStateOf(false) }
@@ -105,6 +105,7 @@ fun HomeScreen(
 
     LaunchedEffect(Unit) {
         visible = true
+        viewModel.checkAndPerformDailyRollover(context)
         viewModel.startStepCounter()
     }
 

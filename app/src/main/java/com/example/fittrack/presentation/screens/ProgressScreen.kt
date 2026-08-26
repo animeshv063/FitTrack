@@ -82,22 +82,39 @@ fun ProgressScreen(
 
     val timeframes = listOf("7 Days", "30 Days", "All Time")
 
-    // Real-time volume calculations: Each completed set immediately adds to progress bar and volume charts!
-    val totalVolume = remember(exercises) {
-        exercises.sumOf { it.completedSets * it.reps * it.weight }
+    // Filter workouts and exercises according to selected timeframe
+    val relevantWorkouts = remember(workouts, selectedTimeframe) {
+        val now = System.currentTimeMillis()
+        val cutoff = when (selectedTimeframe) {
+            "7 Days" -> now - (7L * 24 * 60 * 60 * 1000)
+            "30 Days" -> now - (30L * 24 * 60 * 60 * 1000)
+            else -> 0L
+        }
+        workouts.filter { it.date >= cutoff }
     }
-    val totalSets = remember(exercises) {
-        exercises.sumOf { it.completedSets }
+    val relevantWorkoutIds = remember(relevantWorkouts) {
+        relevantWorkouts.map { it.id }.toSet()
     }
-    val totalReps = remember(exercises) {
-        exercises.sumOf { it.completedSets * it.reps }
+
+    // Real-time volume calculations across completed sets within timeframe
+    val totalVolume = remember(exercises, relevantWorkoutIds) {
+        exercises.filter { relevantWorkoutIds.contains(it.workoutId) }
+            .sumOf { it.completedSets * it.reps * it.weight }
     }
-    val completedWorkouts = remember(workouts) {
-        workouts.count { it.completed }
+    val totalSets = remember(exercises, relevantWorkoutIds) {
+        exercises.filter { relevantWorkoutIds.contains(it.workoutId) }
+            .sumOf { it.completedSets }
+    }
+    val totalReps = remember(exercises, relevantWorkoutIds) {
+        exercises.filter { relevantWorkoutIds.contains(it.workoutId) }
+            .sumOf { it.completedSets * it.reps }
+    }
+    val completedWorkouts = remember(relevantWorkouts) {
+        relevantWorkouts.count { it.completed }
     }
 
     // Weekly Volume Bar Chart data across completed sets immediately
-    val chartData = remember(workouts, exercises, selectedTimeframe) {
+    val chartData = remember(relevantWorkouts, exercises) {
         val daysMap = mutableMapOf(
             Calendar.MONDAY to 0f,
             Calendar.TUESDAY to 0f,
@@ -108,7 +125,7 @@ fun ProgressScreen(
             Calendar.SUNDAY to 0f
         )
 
-        workouts.forEach { w ->
+        relevantWorkouts.forEach { w ->
             val vol = exercises.filter { it.workoutId == w.id }
                 .sumOf { it.completedSets * it.reps * it.weight }.toFloat()
             val cal = Calendar.getInstance().apply { timeInMillis = w.date }
@@ -127,14 +144,14 @@ fun ProgressScreen(
         )
     }
 
-    val muscleSplit = remember(exercises) {
+    val muscleSplit = remember(exercises, relevantWorkoutIds) {
         val map = mutableMapOf(
             "Chest & Shoulders" to 0f,
             "Back & Biceps" to 0f,
             "Legs & Core" to 0f,
             "Cardio & Arms" to 0f
         )
-        exercises.forEach { ex ->
+        exercises.filter { relevantWorkoutIds.contains(it.workoutId) }.forEach { ex ->
             val nameLower = ex.name.lowercase()
             val vol = (ex.completedSets * ex.reps * ex.weight).toFloat()
             when {

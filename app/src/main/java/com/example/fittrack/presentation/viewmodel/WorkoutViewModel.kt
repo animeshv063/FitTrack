@@ -1,5 +1,6 @@
 package com.example.fittrack.presentation.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.fittrack.data.local.entity.ExerciseEntity
@@ -16,6 +17,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 data class CustomExerciseDraft(
     val name: String,
@@ -45,6 +49,24 @@ class WorkoutViewModel(
 
     fun getStepsForDate(dateKey: String): Int {
         return stepCounterManager.getStepsForDate(dateKey)
+    }
+
+    /**
+     * Checks if midnight has passed. If so, automatically resets uncompleted workout exercise ticks
+     * so that the new day starts with a clean volume state, while all completed workouts stay permanently saved.
+     */
+    fun checkAndPerformDailyRollover(context: Context) {
+        viewModelScope.launch {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            val today = sdf.format(Date())
+            val prefs = context.getSharedPreferences("fittrack_app_prefs", Context.MODE_PRIVATE)
+            val lastRecordedDate = prefs.getString("last_active_workout_date", null)
+            if (lastRecordedDate != null && lastRecordedDate != today) {
+                repository.resetUncompletedExercises()
+            }
+            prefs.edit().putString("last_active_workout_date", today).apply()
+            stepCounterManager.loadPersistedSteps()
+        }
     }
 
     // -------------------------

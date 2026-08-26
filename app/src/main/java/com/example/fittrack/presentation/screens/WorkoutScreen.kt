@@ -177,8 +177,13 @@ fun WorkoutScreen(
     viewModel: WorkoutViewModel,
     navController: NavController
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val workouts by viewModel.workouts.collectAsState()
     val allExercises by viewModel.allExercises.collectAsState()
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.checkAndPerformDailyRollover(context)
+    }
 
     var selectedCategoryFilter by remember { mutableStateOf("All") }
     val categories = listOf("All", "Push / Chest", "Pull / Back", "Legs", "Upper Body", "Arms & Abs", "HIIT & Cardio", "Recovery")

@@ -24,7 +24,7 @@ class StepTrackerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        stepCounterManager = StepCounterManager(this)
+        stepCounterManager = StepCounterManager.getInstance(this)
         createNotificationChannel()
     }
 
