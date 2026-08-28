@@ -56,21 +56,6 @@ private data class NavItem(
     val route: String
 )
 
-/**
- * Adds bottom padding only for 3-button navigation (~48dp inset).
- * Gesture navigation uses a smaller inset and keeps the existing full-screen look.
- */
-@Composable
-private fun Modifier.threeButtonNavigationPadding(): Modifier {
-    val navigationBarBottomInset =
-        WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    return if (navigationBarBottomInset >= 40.dp) {
-        padding(bottom = navigationBarBottomInset)
-    } else {
-        this
-    }
-}
-
 @Composable
 fun BottomNavBar(
     navController: NavController
@@ -86,11 +71,19 @@ fun BottomNavBar(
         NavItem("Profile", Icons.Rounded.Person, Routes.Profile.route)
     )
 
+    val navBarsInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val isThreeButtonNavigation = navBarsInset >= 30.dp
+
+    // On 3-button navigation: add generous 20.dp elevation clearance so it floats well above the 3 navigation buttons without touching them
+    // On gesture navigation: add 8.dp clean clearance above the gesture bar
+    val extraElevation = if (isThreeButtonNavigation) 20.dp else 8.dp
+    val effectiveBottomPadding = navBarsInset + extraElevation
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .threeButtonNavigationPadding()
-            .padding(horizontal = 10.dp, vertical = 12.dp)
+            .padding(bottom = effectiveBottomPadding)
+            .padding(horizontal = 14.dp, vertical = 2.dp)
     ) {
         Row(
             modifier = Modifier

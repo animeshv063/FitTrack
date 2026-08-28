@@ -25,23 +25,42 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.media.ExifInterface
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Crop
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.FitnessCenter
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.MilitaryTech
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.TrackChanges
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.ZoomIn
+import androidx.compose.material.icons.rounded.ZoomOut
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -50,6 +69,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -123,15 +143,36 @@ fun ProfileScreen(
         "--"
     }
 
-    var tempPhotoUri by remember { mutableStateOf<Uri?>(null) }
-    var showCircularCropDialog by remember { mutableStateOf(false) }
+    var showPhotoOptionsDialog by remember { mutableStateOf(false) }
+    var showCropDialog by remember { mutableStateOf(false) }
+    var tempCropPhotoUri by remember { mutableStateOf<Uri?>(null) }
+
+    // Firebase & Content Media Studio State
+    var showFirebaseStudioDialog by remember { mutableStateOf(false) }
+    var firebaseImageUrlInput by remember { mutableStateOf("") }
+    var studioActiveImageModel by remember { mutableStateOf<Any?>(null) }
+    var studioScale by remember { mutableFloatStateOf(1f) }
+    var studioOffsetX by remember { mutableFloatStateOf(0f) }
+    var studioOffsetY by remember { mutableFloatStateOf(0f) }
+    var studioAspectRatioMode by remember { mutableStateOf("1:1") }
+
+    val studioPhotoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            studioActiveImageModel = uri
+            studioScale = 1f
+            studioOffsetX = 0f
+            studioOffsetY = 0f
+        }
+    }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
-        uri?.let {
-            tempPhotoUri = it
-            showCircularCropDialog = true
+        uri?.let { pickedUri ->
+            tempCropPhotoUri = pickedUri
+            showCropDialog = true
         }
     }
 
@@ -162,11 +203,15 @@ fun ProfileScreen(
             visible = true,
             enter = fadeIn() + slideInVertically(initialOffsetY = { 30 })
         ) {
+            val statusBarsTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+            val safeTopPadding = if (statusBarsTop > 0.dp) statusBarsTop + 20.dp else 52.dp
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 20.dp)
+                    .padding(horizontal = 20.dp)
+                    .padding(top = safeTopPadding, bottom = 120.dp)
             ) {
                 // Header
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -199,11 +244,18 @@ fun ProfileScreen(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(90.dp)
+                            .size(104.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(CardDarkElevated, RoundedCornerShape(24.dp))
+                            .border(1.5.dp, CardBorderActive, RoundedCornerShape(24.dp))
                             .clickable {
-                                photoPickerLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
+                                if (currentProfile.profileImageUri != null) {
+                                    showPhotoOptionsDialog = true
+                                } else {
+                                    photoPickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                }
                             },
                         contentAlignment = Alignment.Center
                     ) {
@@ -213,40 +265,41 @@ fun ProfileScreen(
                                 contentDescription = "Profile Picture",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
-                                    .size(86.dp)
-                                    .clip(CircleShape)
-                                    .border(2.dp, TextWhite, CircleShape)
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(24.dp))
                             )
                         } else {
-                            Box(
-                                modifier = Modifier
-                                    .size(86.dp)
-                                    .background(CardDarkElevated, CircleShape)
-                                    .border(2.dp, CardBorderActive, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Person,
-                                    contentDescription = "Avatar",
-                                    tint = TextWhite,
-                                    modifier = Modifier.size(42.dp)
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Rounded.Person,
+                                contentDescription = "Avatar",
+                                tint = TextWhite,
+                                modifier = Modifier.size(48.dp)
+                            )
                         }
 
+                        // Edit / Change Photo Button (Bottom-End)
                         Box(
                             modifier = Modifier
                                 .size(28.dp)
                                 .align(Alignment.BottomEnd)
                                 .background(TextWhite, CircleShape)
-                                .border(1.5.dp, CardDark, CircleShape),
+                                .border(1.5.dp, CardDark, CircleShape)
+                                .clickable {
+                                    if (currentProfile.profileImageUri != null) {
+                                        showPhotoOptionsDialog = true
+                                    } else {
+                                        photoPickerLauncher.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                        )
+                                    }
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Edit,
+                                imageVector = Icons.Rounded.PhotoCamera,
                                 contentDescription = "Change photo",
                                 tint = CardDark,
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(15.dp)
                             )
                         }
                     }
@@ -725,6 +778,46 @@ fun ProfileScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
+                // Owner Console: Firebase Image & Precision Zoom Studio
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(CardDark, RoundedCornerShape(24.dp))
+                        .border(1.dp, Color(0xFF00FFA3).copy(alpha = 0.4f), RoundedCornerShape(24.dp))
+                        .padding(20.dp)
+                ) {
+                    Text(
+                        text = "⚡ OWNER CONSOLE • IMAGE STUDIO",
+                        color = Color(0xFF00FFA3),
+                        fontSize = 11.sp,
+                        letterSpacing = 1.2.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Firebase & Media Precision Zoom",
+                        color = TextWhite,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Add Firebase image URLs or storage media, preview at full resolution without edge clipping, and frame with Precision Zoom.",
+                        color = TextGray,
+                        fontSize = 12.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    PrimaryButton(
+                        text = "Open Firebase Image Studio",
+                        onClick = { showFirebaseStudioDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
                 // About FitTrack & Developer Credits
                 Column(
                     modifier = Modifier
@@ -847,11 +940,167 @@ fun ProfileScreen(
         )
     }
 
-    // Circular Photo Crop Modal
-    if (showCircularCropDialog && tempPhotoUri != null) {
-        Dialog(onDismissRequest = { showCircularCropDialog = false }) {
+    // Photo Action Options Dialog (Owner Console)
+    if (showPhotoOptionsDialog && currentProfile.profileImageUri != null) {
+        Dialog(onDismissRequest = { showPhotoOptionsDialog = false }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CardDark, RoundedCornerShape(24.dp))
+                    .border(1.dp, CardBorderActive, RoundedCornerShape(24.dp))
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Profile Photo",
+                            color = TextWhite,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Owner Console Management",
+                            color = Color(0xFF00FFA3),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    IconButton(onClick = { showPhotoOptionsDialog = false }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Close",
+                            tint = TextGray
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Action: Choose New Photo & Crop
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(CardDarkElevated, RoundedCornerShape(16.dp))
+                        .border(1.dp, CardBorderWhite, RoundedCornerShape(16.dp))
+                        .clickable {
+                            showPhotoOptionsDialog = false
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        }
+                        .padding(14.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(Color(0xFF00FFA3).copy(alpha = 0.15f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.PhotoCamera,
+                                contentDescription = "Choose Photo",
+                                tint = Color(0xFF00FFA3),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Choose New Photo", color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Pick from gallery & open Crop/Zoom", color = TextGray, fontSize = 11.sp)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Action: Adjust Crop & Precision Zoom on current photo
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(CardDarkElevated, RoundedCornerShape(16.dp))
+                        .border(1.dp, CardBorderActive, RoundedCornerShape(16.dp))
+                        .clickable {
+                            showPhotoOptionsDialog = false
+                            currentProfile.profileImageUri?.let { uriStr ->
+                                tempCropPhotoUri = Uri.parse(uriStr)
+                                showCropDialog = true
+                            }
+                        }
+                        .padding(14.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(Color(0xFF00FFA3).copy(alpha = 0.15f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Crop,
+                                contentDescription = "Adjust Crop",
+                                tint = Color(0xFF00FFA3),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Adjust Crop & Precision Zoom", color = Color(0xFF00FFA3), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Reposition, zoom in/out, and re-frame", color = TextGray, fontSize = 11.sp)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Action: Remove Photo
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(DangerRed.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
+                        .border(1.dp, DangerRed.copy(alpha = 0.35f), RoundedCornerShape(16.dp))
+                        .clickable {
+                            viewModel.saveUserProfile(currentProfile.copy(profileImageUri = null))
+                            showPhotoOptionsDialog = false
+                        }
+                        .padding(14.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(DangerRed.copy(alpha = 0.15f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Delete,
+                                contentDescription = "Remove Photo",
+                                tint = DangerRed,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Remove Photo", color = DangerRed, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Revert back to default avatar", color = TextGray, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Interactive Photo Crop & Precision Zoom Modal (Owner Console)
+    if (showCropDialog && tempCropPhotoUri != null) {
+        Dialog(onDismissRequest = { showCropDialog = false }) {
             val density = LocalDensity.current
-            val cropContainerSizePx = with(density) { 240.dp.toPx() }
+            val containerSizeDp = 270.dp
+            val containerSizePx = with(density) { containerSizeDp.toPx() }
 
             var scale by remember { mutableStateOf(1f) }
             var offset by remember { mutableStateOf(Offset.Zero) }
@@ -860,41 +1109,58 @@ fun ProfileScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(CardDark, RoundedCornerShape(24.dp))
-                    .border(1.dp, CardBorderWhite, RoundedCornerShape(24.dp))
-                    .padding(20.dp),
+                    .border(1.dp, CardBorderActive, RoundedCornerShape(24.dp))
+                    .padding(18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    text = "Crop Profile Picture",
-                    color = TextWhite,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Drag & zoom photo inside circular mask",
-                    color = TextGray,
-                    fontSize = 12.sp
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Crop & Precision Zoom",
+                            color = TextWhite,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Pinch, drag, or slider to frame photo",
+                            color = Color(0xFF00FFA3),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    IconButton(onClick = { showCropDialog = false }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Close",
+                            tint = TextGray
+                        )
+                    }
+                }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
+                // Interactive Crop Viewport Box
                 Box(
                     modifier = Modifier
-                        .size(240.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color.Black)
+                        .size(containerSizeDp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color(0xFF080C10))
+                        .border(1.5.dp, CardBorderActive, RoundedCornerShape(24.dp))
                         .pointerInput(Unit) {
                             detectTransformGestures { _, pan, zoom, _ ->
-                                scale = (scale * zoom).coerceIn(0.5f, 4f)
+                                scale = (scale * zoom).coerceIn(0.8f, 4.5f)
                                 offset = Offset(offset.x + pan.x, offset.y + pan.y)
                             }
                         },
                     contentAlignment = Alignment.Center
                 ) {
                     AsyncImage(
-                        model = tempPhotoUri,
-                        contentDescription = "Crop Photo",
+                        model = tempCropPhotoUri,
+                        contentDescription = "Crop Frame Preview",
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
                             .fillMaxSize()
@@ -906,69 +1172,532 @@ fun ProfileScreen(
                             )
                     )
 
+                    // Rule-of-thirds framing grid
                     Canvas(modifier = Modifier.fillMaxSize()) {
-                        val circleRadius = size.minDimension * 0.45f
-                        val circleCenter = center
+                        val strokeColor = Color.White.copy(alpha = 0.2f)
+                        val strokeW = 1.dp.toPx()
 
-                        val path = Path().apply {
-                            addRect(Rect(0f, 0f, size.width, size.height))
-                            addOval(
-                                Rect(
-                                    circleCenter.x - circleRadius,
-                                    circleCenter.y - circleRadius,
-                                    circleCenter.x + circleRadius,
-                                    circleCenter.y + circleRadius
-                                )
-                            )
-                            fillType = PathFillType.EvenOdd
-                        }
-                        drawPath(path, color = Color.Black.copy(alpha = 0.65f))
-
-                        drawCircle(
-                            color = Color.White,
-                            radius = circleRadius,
-                            center = circleCenter,
-                            style = Stroke(width = 2.dp.toPx())
+                        // Horizontal lines
+                        drawLine(
+                            color = strokeColor,
+                            start = Offset(0f, size.height / 3f),
+                            end = Offset(size.width, size.height / 3f),
+                            strokeWidth = strokeW
+                        )
+                        drawLine(
+                            color = strokeColor,
+                            start = Offset(0f, 2f * size.height / 3f),
+                            end = Offset(size.width, 2f * size.height / 3f),
+                            strokeWidth = strokeW
+                        )
+                        // Vertical lines
+                        drawLine(
+                            color = strokeColor,
+                            start = Offset(size.width / 3f, 0f),
+                            end = Offset(size.width / 3f, size.height),
+                            strokeWidth = strokeW
+                        )
+                        drawLine(
+                            color = strokeColor,
+                            start = Offset(2f * size.width / 3f, 0f),
+                            end = Offset(2f * size.width / 3f, size.height),
+                            strokeWidth = strokeW
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Precision Zoom Header & Percentage
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "PRECISION ZOOM",
+                        color = TextSilver,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        text = "${(scale * 100).toInt()}%",
+                        color = Color(0xFF00FFA3),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Precision Zoom Slider Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    IconButton(
+                        onClick = { scale = (scale - 0.15f).coerceAtLeast(0.8f) },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.ZoomOut,
+                            contentDescription = "Zoom Out",
+                            tint = TextSilver,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    Slider(
+                        value = scale,
+                        onValueChange = { scale = it },
+                        valueRange = 0.8f..4.5f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color(0xFF00FFA3),
+                            activeTrackColor = Color(0xFF00FFA3),
+                            inactiveTrackColor = CardBorderWhite
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    IconButton(
+                        onClick = { scale = (scale + 0.15f).coerceAtMost(4.5f) },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.ZoomIn,
+                            contentDescription = "Zoom In",
+                            tint = TextSilver,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                // Reset position button
+                TextButton(
+                    onClick = {
+                        scale = 1f
+                        offset = Offset.Zero
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.RestartAlt,
+                        contentDescription = "Reset",
+                        tint = TextSilver,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Reset Position & Zoom", color = TextSilver, fontSize = 12.sp)
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(onClick = { showCircularCropDialog = false }) {
+                    TextButton(onClick = { showCropDialog = false }) {
                         Text("Cancel", color = TextGray)
                     }
 
                     Box(
                         modifier = Modifier
-                            .background(TextWhite, RoundedCornerShape(14.dp))
+                            .background(Color(0xFF00FFA3), RoundedCornerShape(14.dp))
                             .clickable {
-                                tempPhotoUri?.let { uri ->
+                                tempCropPhotoUri?.let { uri ->
                                     val croppedUri = saveCroppedProfileImage(
                                         context = context,
                                         imageUri = uri,
                                         scale = scale,
                                         offset = offset,
-                                        containerSizePx = cropContainerSizePx
+                                        containerSizePx = containerSizePx
                                     ) ?: uri
                                     viewModel.saveUserProfile(
                                         currentProfile.copy(profileImageUri = croppedUri.toString())
                                     )
                                 }
-                                showCircularCropDialog = false
+                                showCropDialog = false
                             }
-                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                            .padding(horizontal = 20.dp, vertical = 10.dp)
                     ) {
-                        Text("Set Profile Picture", color = CardDark, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(
+                            text = "Save & Apply",
+                            color = CardDark,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
                     }
                 }
             }
         }
+    }
+
+    // Firebase & Custom Image Studio Dialog
+    if (showFirebaseStudioDialog) {
+        AlertDialog(
+            onDismissRequest = { showFirebaseStudioDialog = false },
+            containerColor = CardDark,
+            titleContentColor = TextWhite,
+            textContentColor = TextSilver,
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "FIREBASE IMAGE STUDIO",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF00FFA3),
+                            letterSpacing = 1.2.sp
+                        )
+                        Text(
+                            text = "Precision Zoom & Fit",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextWhite
+                        )
+                    }
+                    IconButton(
+                        onClick = { showFirebaseStudioDialog = false },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Close",
+                            tint = TextGray,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Firebase URL Input Field
+                    OutlinedTextField(
+                        value = firebaseImageUrlInput,
+                        onValueChange = { firebaseImageUrlInput = it },
+                        label = { Text("Paste Firebase Image URL") },
+                        placeholder = { Text("https://firebasestorage.googleapis.com/...") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF00FFA3),
+                            unfocusedBorderColor = CardBorderWhite,
+                            focusedLabelColor = Color(0xFF00FFA3),
+                            unfocusedLabelColor = TextGray,
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(CardDarkElevated, RoundedCornerShape(12.dp))
+                                .border(1.dp, CardBorderActive, RoundedCornerShape(12.dp))
+                                .clickable {
+                                    if (firebaseImageUrlInput.isNotBlank()) {
+                                        studioActiveImageModel = firebaseImageUrlInput.trim()
+                                        studioScale = 1f
+                                        studioOffsetX = 0f
+                                        studioOffsetY = 0f
+                                    }
+                                }
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Load URL",
+                                color = Color(0xFF00FFA3),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(CardDarkElevated, RoundedCornerShape(12.dp))
+                                .border(1.dp, CardBorderWhite, RoundedCornerShape(12.dp))
+                                .clickable {
+                                    studioPhotoPickerLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                }
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Pick File",
+                                color = TextWhite,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Aspect Ratio Preset Selector Chips
+                    Text(
+                        text = "SELECT UI FRAMING FORMAT",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextGray,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        listOf("1:1" to "Avatar", "16:9" to "Banner", "9:16" to "Story", "Fit" to "Full Fit").forEach { (mode, label) ->
+                            val isSelected = studioAspectRatioMode == mode
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        if (isSelected) Color(0xFF00FFA3) else CardDarkElevated,
+                                        RoundedCornerShape(10.dp)
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (isSelected) Color(0xFF00FFA3) else CardBorderWhite,
+                                        RoundedCornerShape(10.dp)
+                                    )
+                                    .clickable { studioAspectRatioMode = mode }
+                                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) CardDark else TextSilver,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Viewport / Framing Container
+                    val frameWidthDp = 270.dp
+                    val frameHeightDp = when (studioAspectRatioMode) {
+                        "16:9" -> 152.dp
+                        "9:16" -> 280.dp
+                        "Fit" -> 220.dp
+                        else -> 270.dp
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(width = frameWidthDp, height = frameHeightDp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Color(0xFF0A0F14), RoundedCornerShape(20.dp))
+                            .border(1.5.dp, Color(0xFF00FFA3).copy(alpha = 0.8f), RoundedCornerShape(20.dp))
+                            .pointerInput(Unit) {
+                                detectTransformGestures { _, pan, zoom, _ ->
+                                    studioScale = (studioScale * zoom).coerceIn(0.5f, 4.5f)
+                                    studioOffsetX += pan.x
+                                    studioOffsetY += pan.y
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (studioActiveImageModel != null) {
+                            AsyncImage(
+                                model = studioActiveImageModel,
+                                contentDescription = "Studio Image Preview",
+                                contentScale = if (studioAspectRatioMode == "Fit") ContentScale.Fit else ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer {
+                                        scaleX = studioScale
+                                        scaleY = studioScale
+                                        translationX = studioOffsetX
+                                        translationY = studioOffsetY
+                                    }
+                            )
+
+                            // Photography Rule of Thirds Grid Overlay
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val w = size.width
+                                val h = size.height
+                                val gridColor = Color(0x3300FFA3)
+                                drawLine(gridColor, Offset(w / 3f, 0f), Offset(w / 3f, h), strokeWidth = 1f)
+                                drawLine(gridColor, Offset(2 * w / 3f, 0f), Offset(2 * w / 3f, h), strokeWidth = 1f)
+                                drawLine(gridColor, Offset(0f, h / 3f), Offset(w, h / 3f), strokeWidth = 1f)
+                                drawLine(gridColor, Offset(0f, 2 * h / 3f), Offset(w, 2 * h / 3f), strokeWidth = 1f)
+                            }
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Image,
+                                    contentDescription = null,
+                                    tint = TextGray,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Paste Firebase URL or Pick File",
+                                    color = TextGray,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // PRECISION ZOOM CONTROLS
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(CardDarkElevated, RoundedCornerShape(16.dp))
+                            .border(1.dp, CardBorderWhite, RoundedCornerShape(16.dp))
+                            .padding(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "PRECISION ZOOM",
+                                color = TextWhite,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .background(Color(0xFF00FFA3).copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+                                    .border(1.dp, Color(0xFF00FFA3).copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "${(studioScale * 100).toInt()}%",
+                                    color = Color(0xFF00FFA3),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(
+                                onClick = { studioScale = (studioScale - 0.15f).coerceIn(0.5f, 4.5f) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.ZoomOut,
+                                    contentDescription = "Zoom Out",
+                                    tint = TextWhite,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            Slider(
+                                value = studioScale,
+                                onValueChange = { studioScale = it },
+                                valueRange = 0.5f..4.5f,
+                                modifier = Modifier.weight(1f),
+                                colors = SliderDefaults.colors(
+                                    thumbColor = Color(0xFF00FFA3),
+                                    activeTrackColor = Color(0xFF00FFA3),
+                                    inactiveTrackColor = CardDark
+                                )
+                            )
+
+                            IconButton(
+                                onClick = { studioScale = (studioScale + 0.15f).coerceIn(0.5f, 4.5f) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.ZoomIn,
+                                    contentDescription = "Zoom In",
+                                    tint = TextWhite,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            TextButton(
+                                onClick = {
+                                    studioScale = 1f
+                                    studioOffsetX = 0f
+                                    studioOffsetY = 0f
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.RestartAlt,
+                                    contentDescription = null,
+                                    tint = TextGray,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Reset Position & Zoom",
+                                    color = TextGray,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (studioActiveImageModel != null) {
+                            val uriToSave = when (val model = studioActiveImageModel) {
+                                is Uri -> model.toString()
+                                is String -> model
+                                else -> null
+                            }
+                            if (uriToSave != null) {
+                                viewModel.saveUserProfile(
+                                    currentProfile.copy(profileImageUri = uriToSave)
+                                )
+                            }
+                        }
+                        showFirebaseStudioDialog = false
+                    }
+                ) {
+                    Text("Apply & Use", color = Color(0xFF00FFA3), fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showFirebaseStudioDialog = false }) {
+                    Text("Close", color = TextGray)
+                }
+            }
+        )
     }
 
     // Edit Profile Dialog
@@ -981,6 +1710,67 @@ fun ProfileScreen(
             title = { Text("Edit Athlete Info", fontWeight = FontWeight.Bold) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    // Photo Preview & Change in Edit Athlete Info
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(CardDarkElevated, RoundedCornerShape(16.dp))
+                            .border(1.dp, CardBorderActive, RoundedCornerShape(16.dp))
+                            .clickable {
+                                photoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(CardDark, RoundedCornerShape(14.dp))
+                                .border(1.dp, CardBorderWhite, RoundedCornerShape(14.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (currentProfile.profileImageUri != null) {
+                                AsyncImage(
+                                    model = Uri.parse(currentProfile.profileImageUri),
+                                    contentDescription = "Current Photo",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Rounded.Person,
+                                    contentDescription = "No Photo",
+                                    tint = TextWhite,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Profile Photo",
+                                color = TextWhite,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "Tap to pick & crop with Precision Zoom",
+                                color = Color(0xFF00FFA3),
+                                fontSize = 11.sp
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Rounded.PhotoCamera,
+                            contentDescription = "Pick Photo",
+                            tint = Color(0xFF00FFA3),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+
                     OutlinedTextField(
                         value = editName,
                         onValueChange = { editName = it },
@@ -1082,7 +1872,7 @@ fun ProfileScreen(
 
                         viewModel.saveUserProfile(
                             currentProfile.copy(
-                                name = editName.ifBlank { "Athlete" },
+                                name = editName.ifBlank { "Sherwani" },
                                 gender = editGender.ifBlank { "Male" },
                                 weightKg = weight,
                                 heightCm = height,
@@ -1318,75 +2108,88 @@ private fun saveCroppedProfileImage(
 ): Uri? {
     return try {
         val inputStream = context.contentResolver.openInputStream(imageUri) ?: return null
-        val originalBitmap = android.graphics.BitmapFactory.decodeStream(inputStream) ?: return null
+        val originalBitmap = BitmapFactory.decodeStream(inputStream) ?: return null
         inputStream.close()
 
-        val containerSize = containerSizePx.toInt().coerceAtLeast(1)
-        val circleRadius = containerSize * 0.45f
-        val circleDiameter = (circleRadius * 2f).toInt().coerceAtLeast(1)
+        // Handle EXIF orientation
+        val exifInputStream = context.contentResolver.openInputStream(imageUri)
+        val orientation = if (exifInputStream != null) {
+            val exif = ExifInterface(exifInputStream)
+            val attr = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+            exifInputStream.close()
+            attr
+        } else {
+            ExifInterface.ORIENTATION_NORMAL
+        }
 
-        val srcW = originalBitmap.width.toFloat()
-        val srcH = originalBitmap.height.toFloat()
+        val matrix = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+        }
 
-        val paint = android.graphics.Paint(
-            android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.FILTER_BITMAP_FLAG
-        )
-
-        val fittedBitmap = android.graphics.Bitmap.createBitmap(
-            containerSize,
-            containerSize,
-            android.graphics.Bitmap.Config.ARGB_8888
-        )
-        val fittedCanvas = android.graphics.Canvas(fittedBitmap)
-        fittedCanvas.drawColor(android.graphics.Color.BLACK)
-
-        val fitScale = minOf(containerSize / srcW, containerSize / srcH)
-        val fitMatrix = android.graphics.Matrix().apply {
-            postScale(fitScale, fitScale)
-            postTranslate(
-                (containerSize - srcW * fitScale) / 2f,
-                (containerSize - srcH * fitScale) / 2f
+        val orientedBitmap = if (!matrix.isIdentity) {
+            val rotated = Bitmap.createBitmap(
+                originalBitmap, 0, 0, originalBitmap.width, originalBitmap.height, matrix, true
             )
+            originalBitmap.recycle()
+            rotated
+        } else {
+            originalBitmap
         }
-        fittedCanvas.drawBitmap(originalBitmap, fitMatrix, paint)
 
-        val viewportBitmap = android.graphics.Bitmap.createBitmap(
-            containerSize,
-            containerSize,
-            android.graphics.Bitmap.Config.ARGB_8888
-        )
-        val viewportCanvas = android.graphics.Canvas(viewportBitmap)
-        val center = containerSize / 2f
-        val viewMatrix = android.graphics.Matrix().apply {
-            postScale(scale, scale, center, center)
-            postTranslate(offset.x, offset.y)
+        val containerSize = containerSizePx.coerceAtLeast(1f)
+        val srcW = orientedBitmap.width.toFloat()
+        val srcH = orientedBitmap.height.toFloat()
+
+        // Fit scale inside square container
+        val fitScale = minOf(containerSize / srcW, containerSize / srcH)
+        val dispW = srcW * fitScale
+        val dispH = srcH * fitScale
+        val startX = (containerSize - dispW) / 2f
+        val startY = (containerSize - dispH) / 2f
+        val cx = containerSize / 2f
+        val cy = containerSize / 2f
+
+        // Map container pixel space back to source bitmap coordinate space
+        val effectiveScale = scale.coerceAtLeast(0.1f)
+        val bmLeft = ((0f - cx - offset.x) / effectiveScale + cx - startX) / fitScale
+        val bmTop = ((0f - cy - offset.y) / effectiveScale + cy - startY) / fitScale
+        val bmWidth = (containerSize / effectiveScale) / fitScale
+        val bmHeight = (containerSize / effectiveScale) / fitScale
+
+        val cropX = bmLeft.toInt().coerceIn(0, (srcW - 1).toInt())
+        val cropY = bmTop.toInt().coerceIn(0, (srcH - 1).toInt())
+        val maxAvailableW = (srcW - cropX).toInt().coerceAtLeast(1)
+        val maxAvailableH = (srcH - cropY).toInt().coerceAtLeast(1)
+        val cropW = bmWidth.toInt().coerceIn(1, maxAvailableW)
+        val cropH = bmHeight.toInt().coerceIn(1, maxAvailableH)
+        val cropSize = minOf(cropW, cropH)
+
+        val croppedBitmap = Bitmap.createBitmap(orientedBitmap, cropX, cropY, cropSize, cropSize)
+
+        // Output in sharp high-definition (up to 1080x1080)
+        val targetOutputSize = minOf(cropSize, 1080).coerceAtLeast(512)
+        val finalBitmap = if (cropSize != targetOutputSize) {
+            val scaled = Bitmap.createScaledBitmap(croppedBitmap, targetOutputSize, targetOutputSize, true)
+            croppedBitmap.recycle()
+            scaled
+        } else {
+            croppedBitmap
         }
-        viewportCanvas.drawBitmap(fittedBitmap, viewMatrix, paint)
 
-        val cropLeft = (center - circleRadius).toInt().coerceIn(0, containerSize - circleDiameter)
-        val cropTop = (center - circleRadius).toInt().coerceIn(0, containerSize - circleDiameter)
-        val squareCrop = android.graphics.Bitmap.createBitmap(
-            viewportBitmap,
-            cropLeft,
-            cropTop,
-            circleDiameter,
-            circleDiameter
+        orientedBitmap.recycle()
+
+        val avatarFile = java.io.File(
+            context.filesDir,
+            "athlete_crop_${System.currentTimeMillis()}.jpg"
         )
-
-        val outputSize = 400
-        val outputBitmap = android.graphics.Bitmap.createScaledBitmap(squareCrop, outputSize, outputSize, true)
-
-        fittedBitmap.recycle()
-        viewportBitmap.recycle()
-        squareCrop.recycle()
-        originalBitmap.recycle()
-
-        val avatarFile = java.io.File(context.filesDir, "cropped_avatar_${System.currentTimeMillis()}.jpg")
         val outputStream = java.io.FileOutputStream(avatarFile)
-        outputBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, outputStream)
+        finalBitmap.compress(Bitmap.CompressFormat.JPEG, 96, outputStream)
         outputStream.flush()
         outputStream.close()
-        outputBitmap.recycle()
+        finalBitmap.recycle()
 
         Uri.fromFile(avatarFile)
     } catch (e: Exception) {

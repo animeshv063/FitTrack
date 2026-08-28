@@ -17,6 +17,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -208,13 +212,16 @@ fun WorkoutScreen(
     var errorMessage by remember { mutableStateOf("") }
 
     GlowingBackground {
+        val statusBarsTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val safeTopPadding: Dp = if (statusBarsTop > 0.dp) statusBarsTop + 20.dp else 52.dp
+
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(
                 start = 20.dp,
-                top = 20.dp,
+                top = safeTopPadding,
                 end = 20.dp,
-                bottom = 100.dp
+                bottom = 120.dp
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {

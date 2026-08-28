@@ -17,6 +17,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -184,11 +188,15 @@ fun ProgressScreen(
             visible = true,
             enter = fadeIn() + slideInVertically(initialOffsetY = { 30 })
         ) {
+            val statusBarsTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+            val safeTopPadding: Dp = if (statusBarsTop > 0.dp) statusBarsTop + 20.dp else 52.dp
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 20.dp)
+                    .padding(horizontal = 20.dp)
+                    .padding(top = safeTopPadding, bottom = 120.dp)
             ) {
                 // Header
                 Text(
