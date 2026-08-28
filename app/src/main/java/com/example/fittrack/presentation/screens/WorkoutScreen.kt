@@ -719,8 +719,12 @@ fun WorkoutScreen(
                         Spacer(modifier = Modifier.height(14.dp))
 
                         PrimaryButton(
-                            text = "▶ Open & Track Workout",
+                            text = if (workout.completed) "▶ Restart & Track Workout" else "▶ Open & Track Workout",
                             onClick = {
+                                if (workout.completed) {
+                                    viewModel.resetWorkoutSets(workout.id)
+                                    viewModel.setWorkoutCompleted(workout.id, false)
+                                }
                                 navController.navigate("workout_detail/${workout.id}")
                             }
                         )

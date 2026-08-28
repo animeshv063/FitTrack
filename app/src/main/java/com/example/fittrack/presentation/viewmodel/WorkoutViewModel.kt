@@ -141,6 +141,12 @@ class WorkoutViewModel(
         }
     }
 
+    fun setWorkoutCompleted(workoutId: Int, completed: Boolean) {
+        viewModelScope.launch {
+            repository.setWorkoutCompleted(workoutId, completed)
+        }
+    }
+
     fun deleteAllWorkouts() {
         viewModelScope.launch {
             repository.deleteAllWorkouts()
@@ -261,6 +267,12 @@ class WorkoutViewModel(
     fun updateCompletedSets(exerciseId: Int, completedSets: Int) {
         viewModelScope.launch {
             repository.updateCompletedSets(exerciseId, completedSets)
+        }
+    }
+
+    fun resetWorkoutSets(workoutId: Int) {
+        viewModelScope.launch {
+            repository.resetCompletedSetsForWorkout(workoutId)
         }
     }
 

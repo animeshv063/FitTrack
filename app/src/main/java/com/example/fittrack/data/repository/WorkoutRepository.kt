@@ -78,6 +78,10 @@ class WorkoutRepository(
         workoutDao.updateCompletedSets(exerciseId, completedSets)
     }
 
+    suspend fun resetCompletedSetsForWorkout(workoutId: Int) {
+        workoutDao.resetCompletedSetsForWorkout(workoutId)
+    }
+
     suspend fun resetUncompletedExercises() {
         workoutDao.resetUncompletedExercises()
     }

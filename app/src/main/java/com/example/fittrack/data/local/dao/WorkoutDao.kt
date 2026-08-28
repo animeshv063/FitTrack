@@ -68,6 +68,9 @@ interface WorkoutDao {
     @Query("UPDATE exercises SET completedSets = :completedSets WHERE id = :exerciseId")
     suspend fun updateCompletedSets(exerciseId: Int, completedSets: Int)
 
+    @Query("UPDATE exercises SET completedSets = 0 WHERE workoutId = :workoutId")
+    suspend fun resetCompletedSetsForWorkout(workoutId: Int)
+
     @Query("UPDATE exercises SET completedSets = 0 WHERE workoutId IN (SELECT id FROM workouts WHERE completed = 0)")
     suspend fun resetUncompletedExercises()
 

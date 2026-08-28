@@ -153,29 +153,6 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     FitTrackLogo(size = 36.dp, showText = true)
-
-                    Box(
-                        modifier = Modifier
-                            .background(CardDarkElevated, RoundedCornerShape(14.dp))
-                            .border(1.dp, CardBorderActive, RoundedCornerShape(14.dp))
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Rounded.EmojiEvents,
-                                contentDescription = "Rank",
-                                tint = TextWhite,
-                                modifier = Modifier.size(15.dp)
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Text(
-                                text = dynamicTitle,
-                                color = TextWhite,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))

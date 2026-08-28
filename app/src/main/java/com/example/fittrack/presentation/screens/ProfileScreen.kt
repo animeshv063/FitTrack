@@ -292,25 +292,6 @@ fun ProfileScreen(
 
                     Text(text = currentProfile.name, color = TextWhite, fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .background(CardDarkElevated, CircleShape)
-                            .border(1.dp, CardBorderActive, CircleShape)
-                            .padding(horizontal = 14.dp, vertical = 6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.EmojiEvents,
-                            contentDescription = "Badge",
-                            tint = TextWhite,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = dynamicTitle, color = TextWhite, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                    }
-
                     Spacer(modifier = Modifier.height(16.dp))
 
                     PrimaryButton(

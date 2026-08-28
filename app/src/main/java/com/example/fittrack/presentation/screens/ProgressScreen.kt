@@ -49,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -325,16 +326,46 @@ fun ProgressScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(TextWhite, RoundedCornerShape(16.dp))
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(Color(0xFF00FFA3), Color(0xFF00F2FE))
+                                    ),
+                                    RoundedCornerShape(16.dp)
+                                )
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "🏆 TARGET VOLUME ACHIEVED! Milestone Unlocked 🎉",
-                                color = CardDark,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "🔥 CONGRATULATIONS! 🔥",
+                                    color = Color(0xFF0E0E12),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Black,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(
+                                    text = "TARGET VOLUME CRUSHED",
+                                    color = Color(0xFF0E0E12),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.5.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Phenomenal effort! Every rep is forging strength and transforming your body. Keep dominating!",
+                                    color = Color(0xFF0E0E12).copy(alpha = 0.92f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    lineHeight = 15.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 8.dp)
+                                )
+                            }
                         }
                     }
                 }

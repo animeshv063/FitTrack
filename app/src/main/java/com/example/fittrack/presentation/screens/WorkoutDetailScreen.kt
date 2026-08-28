@@ -303,6 +303,7 @@ fun WorkoutDetailScreen(
                                         )
                                     }
                                     viewModel.completeWorkout(workoutId)
+                                    viewModel.resetWorkoutSets(workoutId)
                                     soundAlarmManager.playWorkoutCompletedSound()
                                     showWorkoutCompletedCelebration = true
                                 }
@@ -972,7 +973,12 @@ private fun ExerciseCardItem(
 }
 
 private fun formatSecondsToMMSS(seconds: Int): String {
-    val mins = seconds / 60
+    val hours = seconds / 3600
+    val mins = (seconds % 3600) / 60
     val secs = seconds % 60
-    return String.format("%02d:%02d", mins, secs)
+    return if (hours > 0) {
+        String.format("%02d:%02d:%02d", hours, mins, secs)
+    } else {
+        String.format("%02d:%02d", mins, secs)
+    }
 }
