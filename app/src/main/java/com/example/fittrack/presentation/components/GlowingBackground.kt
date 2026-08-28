@@ -106,10 +106,10 @@ fun GlowingBackground(
             val width = size.width
             val height = size.height
 
-            // 1. AMOLED True Black Canvas
-            drawRect(color = Color(0xFF000000))
-
             if (isAnimationEnabled) {
+                // 1. AMOLED True Black Base Canvas when animation is active
+                drawRect(color = Color(0xFF000000))
+
                 // 2. Liquid Plasma Glowing Mesh Orbs (Rich, Vibrant & Shifting)
                 val t = timeFlow * 6.28318f
 
@@ -284,6 +284,32 @@ fun GlowingBackground(
                         center = pos
                     )
                 }
+            } else {
+                // Eye-Comfortable Modern Soft Dark Charcoal / Deep Slate Gradient
+                // Reduces eye strain, eliminates harsh pitch-black glare, softens contrast with AMOLED cards
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFF14171E), // Soft dark navy/slate top
+                            Color(0xFF0F1117), // Deep charcoal mid
+                            Color(0xFF0B0D12)  // Soft dark bottom
+                        )
+                    )
+                )
+
+                // Very subtle, warm ambient center vignette for depth without any jarring glare
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFF1A1F29).copy(alpha = 0.45f),
+                            Color.Transparent
+                        ),
+                        center = Offset(width * 0.5f, height * 0.35f),
+                        radius = width * 0.95f
+                    ),
+                    radius = width * 0.95f,
+                    center = Offset(width * 0.5f, height * 0.35f)
+                )
             }
         }
 

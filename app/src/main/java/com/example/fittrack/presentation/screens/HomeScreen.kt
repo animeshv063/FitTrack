@@ -152,7 +152,7 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    FitTrackLogo(size = 32.dp, showText = true)
+                    FitTrackLogo(size = 36.dp, showText = true)
 
                     Box(
                         modifier = Modifier
@@ -186,7 +186,7 @@ fun HomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Welcome back, ${userProfile?.name ?: "Sherwani"}",
+                        text = "Welcome back, ${userProfile?.name ?: "Athlete"}",
                         color = TextSilver,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium

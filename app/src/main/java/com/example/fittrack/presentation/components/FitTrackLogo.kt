@@ -27,7 +27,8 @@ import com.example.fittrack.presentation.theme.TextWhite
 fun FitTrackLogo(
     modifier: Modifier = Modifier,
     size: Dp = 42.dp,
-    showText: Boolean = true
+    showText: Boolean = true,
+    logoResId: Int = R.drawable.app_logo_clean
 ) {
     Row(
         modifier = modifier,
@@ -46,7 +47,7 @@ fun FitTrackLogo(
             contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.app_logo),
+                painter = painterResource(id = logoResId),
                 contentDescription = "FitTrack App Icon",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.size(size)

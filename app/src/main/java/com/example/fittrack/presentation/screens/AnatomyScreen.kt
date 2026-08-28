@@ -232,11 +232,20 @@ fun AnatomyScreen() {
 
                 val muscleColor = when (selectedMuscle.id) {
                     "chest" -> Color(0xFF00F2FE)       // Electric Cyan
-                    "back" -> Color(0xFFA855F7)        // Electric Purple
-                    "legs" -> Color(0xFF00FFA3)        // Neon Mint
                     "shoulders" -> Color(0xFFFF6B00)   // Flame Orange
-                    "arms" -> Color(0xFFFBBF24)        // Golden Amber
-                    else -> Color(0xFFEC4899)          // Hot Pink
+                    "biceps" -> Color(0xFF00FFA3)      // Neon Mint
+                    "triceps" -> Color(0xFFFBBF24)     // Amber Gold
+                    "forearms" -> Color(0xFF38BDF8)    // Sky Blue
+                    "abs" -> Color(0xFFA855F7)         // Electric Purple
+                    "obliques" -> Color(0xFFEC4899)    // Neon Magenta
+                    "traps" -> Color(0xFFFF453A)       // Coral Flame
+                    "lats" -> Color(0xFF6366F1)        // Indigo Violet
+                    "lower_back" -> Color(0xFF10B981)   // Emerald Jade
+                    "glutes" -> Color(0xFFF43F5E)      // Rose Crimson
+                    "quads" -> Color(0xFF14B8A6)       // Vibrant Teal
+                    "hamstrings" -> Color(0xFFEAB308)  // Sunflower Gold
+                    "calves" -> Color(0xFF8B5CF6)      // Lavender Purple
+                    else -> Color(0xFF00FFA3)
                 }
 
                 // Selected Muscle Details & Targeted Exercise Recommendations

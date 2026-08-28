@@ -61,6 +61,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -147,25 +149,7 @@ fun ProfileScreen(
     var showCropDialog by remember { mutableStateOf(false) }
     var tempCropPhotoUri by remember { mutableStateOf<Uri?>(null) }
 
-    // Firebase & Content Media Studio State
-    var showFirebaseStudioDialog by remember { mutableStateOf(false) }
-    var firebaseImageUrlInput by remember { mutableStateOf("") }
-    var studioActiveImageModel by remember { mutableStateOf<Any?>(null) }
-    var studioScale by remember { mutableFloatStateOf(1f) }
-    var studioOffsetX by remember { mutableFloatStateOf(0f) }
-    var studioOffsetY by remember { mutableFloatStateOf(0f) }
-    var studioAspectRatioMode by remember { mutableStateOf("1:1") }
 
-    val studioPhotoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            studioActiveImageModel = uri
-            studioScale = 1f
-            studioOffsetX = 0f
-            studioOffsetY = 0f
-        }
-    }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -776,45 +760,7 @@ fun ProfileScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
 
-                // Owner Console: Firebase Image & Precision Zoom Studio
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(CardDark, RoundedCornerShape(24.dp))
-                        .border(1.dp, Color(0xFF00FFA3).copy(alpha = 0.4f), RoundedCornerShape(24.dp))
-                        .padding(20.dp)
-                ) {
-                    Text(
-                        text = "⚡ OWNER CONSOLE • IMAGE STUDIO",
-                        color = Color(0xFF00FFA3),
-                        fontSize = 11.sp,
-                        letterSpacing = 1.2.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Firebase & Media Precision Zoom",
-                        color = TextWhite,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Add Firebase image URLs or storage media, preview at full resolution without edge clipping, and frame with Precision Zoom.",
-                        color = TextGray,
-                        fontSize = 12.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    PrimaryButton(
-                        text = "Open Firebase Image Studio",
-                        onClick = { showFirebaseStudioDialog = true },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -940,7 +886,7 @@ fun ProfileScreen(
         )
     }
 
-    // Photo Action Options Dialog (Owner Console)
+    // Photo Action Options Dialog
     if (showPhotoOptionsDialog && currentProfile.profileImageUri != null) {
         Dialog(onDismissRequest = { showPhotoOptionsDialog = false }) {
             Column(
@@ -964,7 +910,7 @@ fun ProfileScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Owner Console Management",
+                            text = "Local Storage & Precision Crop",
                             color = Color(0xFF00FFA3),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium
@@ -1095,7 +1041,7 @@ fun ProfileScreen(
         }
     }
 
-    // Interactive Photo Crop & Precision Zoom Modal (Owner Console)
+    // Interactive Local Photo Crop & Precision Zoom Modal
     if (showCropDialog && tempCropPhotoUri != null) {
         Dialog(onDismissRequest = { showCropDialog = false }) {
             val density = LocalDensity.current
@@ -1334,371 +1280,6 @@ fun ProfileScreen(
         }
     }
 
-    // Firebase & Custom Image Studio Dialog
-    if (showFirebaseStudioDialog) {
-        AlertDialog(
-            onDismissRequest = { showFirebaseStudioDialog = false },
-            containerColor = CardDark,
-            titleContentColor = TextWhite,
-            textContentColor = TextSilver,
-            title = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "FIREBASE IMAGE STUDIO",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF00FFA3),
-                            letterSpacing = 1.2.sp
-                        )
-                        Text(
-                            text = "Precision Zoom & Fit",
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextWhite
-                        )
-                    }
-                    IconButton(
-                        onClick = { showFirebaseStudioDialog = false },
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Close,
-                            contentDescription = "Close",
-                            tint = TextGray,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Firebase URL Input Field
-                    OutlinedTextField(
-                        value = firebaseImageUrlInput,
-                        onValueChange = { firebaseImageUrlInput = it },
-                        label = { Text("Paste Firebase Image URL") },
-                        placeholder = { Text("https://firebasestorage.googleapis.com/...") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF00FFA3),
-                            unfocusedBorderColor = CardBorderWhite,
-                            focusedLabelColor = Color(0xFF00FFA3),
-                            unfocusedLabelColor = TextGray,
-                            focusedTextColor = TextWhite,
-                            unfocusedTextColor = TextWhite
-                        ),
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .background(CardDarkElevated, RoundedCornerShape(12.dp))
-                                .border(1.dp, CardBorderActive, RoundedCornerShape(12.dp))
-                                .clickable {
-                                    if (firebaseImageUrlInput.isNotBlank()) {
-                                        studioActiveImageModel = firebaseImageUrlInput.trim()
-                                        studioScale = 1f
-                                        studioOffsetX = 0f
-                                        studioOffsetY = 0f
-                                    }
-                                }
-                                .padding(vertical = 10.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Load URL",
-                                color = Color(0xFF00FFA3),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .background(CardDarkElevated, RoundedCornerShape(12.dp))
-                                .border(1.dp, CardBorderWhite, RoundedCornerShape(12.dp))
-                                .clickable {
-                                    studioPhotoPickerLauncher.launch(
-                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                    )
-                                }
-                                .padding(vertical = 10.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Pick File",
-                                color = TextWhite,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Aspect Ratio Preset Selector Chips
-                    Text(
-                        text = "SELECT UI FRAMING FORMAT",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextGray,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        listOf("1:1" to "Avatar", "16:9" to "Banner", "9:16" to "Story", "Fit" to "Full Fit").forEach { (mode, label) ->
-                            val isSelected = studioAspectRatioMode == mode
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        if (isSelected) Color(0xFF00FFA3) else CardDarkElevated,
-                                        RoundedCornerShape(10.dp)
-                                    )
-                                    .border(
-                                        1.dp,
-                                        if (isSelected) Color(0xFF00FFA3) else CardBorderWhite,
-                                        RoundedCornerShape(10.dp)
-                                    )
-                                    .clickable { studioAspectRatioMode = mode }
-                                    .padding(horizontal = 8.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = label,
-                                    color = if (isSelected) CardDark else TextSilver,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Viewport / Framing Container
-                    val frameWidthDp = 270.dp
-                    val frameHeightDp = when (studioAspectRatioMode) {
-                        "16:9" -> 152.dp
-                        "9:16" -> 280.dp
-                        "Fit" -> 220.dp
-                        else -> 270.dp
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .size(width = frameWidthDp, height = frameHeightDp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color(0xFF0A0F14), RoundedCornerShape(20.dp))
-                            .border(1.5.dp, Color(0xFF00FFA3).copy(alpha = 0.8f), RoundedCornerShape(20.dp))
-                            .pointerInput(Unit) {
-                                detectTransformGestures { _, pan, zoom, _ ->
-                                    studioScale = (studioScale * zoom).coerceIn(0.5f, 4.5f)
-                                    studioOffsetX += pan.x
-                                    studioOffsetY += pan.y
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (studioActiveImageModel != null) {
-                            AsyncImage(
-                                model = studioActiveImageModel,
-                                contentDescription = "Studio Image Preview",
-                                contentScale = if (studioAspectRatioMode == "Fit") ContentScale.Fit else ContentScale.Crop,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer {
-                                        scaleX = studioScale
-                                        scaleY = studioScale
-                                        translationX = studioOffsetX
-                                        translationY = studioOffsetY
-                                    }
-                            )
-
-                            // Photography Rule of Thirds Grid Overlay
-                            Canvas(modifier = Modifier.fillMaxSize()) {
-                                val w = size.width
-                                val h = size.height
-                                val gridColor = Color(0x3300FFA3)
-                                drawLine(gridColor, Offset(w / 3f, 0f), Offset(w / 3f, h), strokeWidth = 1f)
-                                drawLine(gridColor, Offset(2 * w / 3f, 0f), Offset(2 * w / 3f, h), strokeWidth = 1f)
-                                drawLine(gridColor, Offset(0f, h / 3f), Offset(w, h / 3f), strokeWidth = 1f)
-                                drawLine(gridColor, Offset(0f, 2 * h / 3f), Offset(w, 2 * h / 3f), strokeWidth = 1f)
-                            }
-                        } else {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Image,
-                                    contentDescription = null,
-                                    tint = TextGray,
-                                    modifier = Modifier.size(36.dp)
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Paste Firebase URL or Pick File",
-                                    color = TextGray,
-                                    fontSize = 11.sp
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // PRECISION ZOOM CONTROLS
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(CardDarkElevated, RoundedCornerShape(16.dp))
-                            .border(1.dp, CardBorderWhite, RoundedCornerShape(16.dp))
-                            .padding(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "PRECISION ZOOM",
-                                color = TextWhite,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .background(Color(0xFF00FFA3).copy(alpha = 0.15f), RoundedCornerShape(8.dp))
-                                    .border(1.dp, Color(0xFF00FFA3).copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = "${(studioScale * 100).toInt()}%",
-                                    color = Color(0xFF00FFA3),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconButton(
-                                onClick = { studioScale = (studioScale - 0.15f).coerceIn(0.5f, 4.5f) },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.ZoomOut,
-                                    contentDescription = "Zoom Out",
-                                    tint = TextWhite,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-
-                            Slider(
-                                value = studioScale,
-                                onValueChange = { studioScale = it },
-                                valueRange = 0.5f..4.5f,
-                                modifier = Modifier.weight(1f),
-                                colors = SliderDefaults.colors(
-                                    thumbColor = Color(0xFF00FFA3),
-                                    activeTrackColor = Color(0xFF00FFA3),
-                                    inactiveTrackColor = CardDark
-                                )
-                            )
-
-                            IconButton(
-                                onClick = { studioScale = (studioScale + 0.15f).coerceIn(0.5f, 4.5f) },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.ZoomIn,
-                                    contentDescription = "Zoom In",
-                                    tint = TextWhite,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            TextButton(
-                                onClick = {
-                                    studioScale = 1f
-                                    studioOffsetX = 0f
-                                    studioOffsetY = 0f
-                                }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.RestartAlt,
-                                    contentDescription = null,
-                                    tint = TextGray,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Reset Position & Zoom",
-                                    color = TextGray,
-                                    fontSize = 11.sp
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (studioActiveImageModel != null) {
-                            val uriToSave = when (val model = studioActiveImageModel) {
-                                is Uri -> model.toString()
-                                is String -> model
-                                else -> null
-                            }
-                            if (uriToSave != null) {
-                                viewModel.saveUserProfile(
-                                    currentProfile.copy(profileImageUri = uriToSave)
-                                )
-                            }
-                        }
-                        showFirebaseStudioDialog = false
-                    }
-                ) {
-                    Text("Apply & Use", color = Color(0xFF00FFA3), fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showFirebaseStudioDialog = false }) {
-                    Text("Close", color = TextGray)
-                }
-            }
-        )
-    }
 
     // Edit Profile Dialog
     if (showEditProfileDialog) {
@@ -1803,8 +1384,15 @@ fun ProfileScreen(
                     Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
                         value = editWeight,
-                        onValueChange = { editWeight = it },
+                        onValueChange = { input ->
+                            // Allow digits and at most one decimal point
+                            if (input.count { it == '.' } <= 1 && input.all { it.isDigit() || it == '.' }) {
+                                editWeight = input
+                            }
+                        },
                         label = { Text("Weight (kg)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = TextWhite,
                             unfocusedBorderColor = CardBorderWhite,
@@ -1818,8 +1406,14 @@ fun ProfileScreen(
                     Spacer(modifier = Modifier.height(10.dp))
                     OutlinedTextField(
                         value = editHeight,
-                        onValueChange = { editHeight = it },
+                        onValueChange = { input ->
+                            if (input.count { it == '.' } <= 1 && input.all { it.isDigit() || it == '.' }) {
+                                editHeight = input
+                            }
+                        },
                         label = { Text("Height (cm)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = TextWhite,
                             unfocusedBorderColor = CardBorderWhite,
@@ -1835,6 +1429,8 @@ fun ProfileScreen(
                         value = editStepGoal,
                         onValueChange = { editStepGoal = it.filter { c -> c.isDigit() } },
                         label = { Text("Daily Step Target") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = TextWhite,
                             unfocusedBorderColor = CardBorderWhite,
@@ -1850,6 +1446,8 @@ fun ProfileScreen(
                         value = editWaterGoal,
                         onValueChange = { editWaterGoal = it.filter { c -> c.isDigit() } },
                         label = { Text("Daily Water Target (ml)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = TextWhite,
                             unfocusedBorderColor = CardBorderWhite,
@@ -1872,7 +1470,7 @@ fun ProfileScreen(
 
                         viewModel.saveUserProfile(
                             currentProfile.copy(
-                                name = editName.ifBlank { "Sherwani" },
+                                name = editName.ifBlank { "Athlete" },
                                 gender = editGender.ifBlank { "Male" },
                                 weightKg = weight,
                                 heightCm = height,

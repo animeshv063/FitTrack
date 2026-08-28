@@ -42,12 +42,8 @@ class WorkoutViewModel(
     init {
         viewModelScope.launch {
             val current = repository.getUserProfileOnce()
-            if (current != null) {
-                if (current.name.equals("shervani", ignoreCase = true) || current.name == "Athlete") {
-                    repository.saveUserProfile(current.copy(name = "Sherwani"))
-                }
-            } else {
-                repository.saveUserProfile(UserProfileEntity(name = "Sherwani"))
+            if (current == null) {
+                repository.saveUserProfile(UserProfileEntity(name = "Athlete"))
             }
         }
     }
