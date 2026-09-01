@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.fittrack.data.local.entity.WorkoutEntity
+import com.example.fittrack.data.local.entity.WorkoutLogEntity
 import com.example.fittrack.presentation.theme.CardBorderActive
 import com.example.fittrack.presentation.theme.CardBorderWhite
 import com.example.fittrack.presentation.theme.CardDark
@@ -65,6 +66,7 @@ import java.util.Locale
 fun CalendarStreakCard(
     workouts: List<WorkoutEntity>,
     modifier: Modifier = Modifier,
+    workoutLogs: List<WorkoutLogEntity> = emptyList(),
     getStepsForDate: (String) -> Int = { 0 },
     todaySteps: Int = 0
 ) {
@@ -100,20 +102,29 @@ fun CalendarStreakCard(
     val displayDateSdf = remember { SimpleDateFormat("EEEE, MMM d", Locale.getDefault()) }
     val todayKey = remember(todayCal.get(Calendar.DAY_OF_YEAR)) { sdf.format(Date()) }
 
-    val workoutDateSet = remember(workouts) {
-        workouts.filter { it.completed }.map {
+    val workoutDateSet = remember(workouts, workoutLogs) {
+        val fromWorkouts = workouts.filter { it.completed }.map {
             sdf.format(Date(it.date))
-        }.toSet()
+        }
+        val fromLogs = workoutLogs.map {
+            if (it.dateString.isNotBlank()) it.dateString else sdf.format(Date(it.date))
+        }
+        (fromWorkouts + fromLogs).toSet()
     }
 
     val monthSdf = SimpleDateFormat("yyyy-MM", Locale.US)
     val currentMonthKey = monthSdf.format(calendar.time)
 
-    val streakCount = remember(workouts) {
-        calculateCurrentStreak(workouts)
+    val streakCount = remember(workouts, workoutLogs) {
+        calculateCurrentStreak(workouts, workoutLogs)
     }
 
-    // Workouts for selected inspected date
+    // Workouts & Session logs for selected inspected date
+    val selectedDayWorkoutLogs = remember(workoutLogs, selectedDateKey) {
+        if (selectedDateKey == null) emptyList()
+        else workoutLogs.filter { it.dateString == selectedDateKey || sdf.format(Date(it.date)) == selectedDateKey }
+    }
+
     val selectedDayWorkouts = remember(workouts, selectedDateKey) {
         if (selectedDateKey == null) emptyList()
         else workouts.filter { it.completed && sdf.format(Date(it.date)) == selectedDateKey }
@@ -358,7 +369,13 @@ fun CalendarStreakCard(
 
         // Selected Date Training & Steps Details Panel
         AnimatedVisibility(visible = selectedDateKey != null) {
-            val totalMins = selectedDayWorkouts.sumOf { it.duration }
+            val totalMins = if (selectedDayWorkoutLogs.isNotEmpty()) {
+                selectedDayWorkoutLogs.sumOf { it.durationMins }
+            } else {
+                selectedDayWorkouts.sumOf { it.duration }
+            }
+            val hasWorkout = selectedDayWorkoutLogs.isNotEmpty() || selectedDayWorkouts.isNotEmpty()
+            val sessionCount = if (selectedDayWorkoutLogs.isNotEmpty()) selectedDayWorkoutLogs.size else selectedDayWorkouts.size
             val estCalories = (selectedDaySteps * 0.04).toInt()
             val estDistanceKm = selectedDaySteps * 0.00075
             val isTodaySelected = selectedDateKey == todayKey
@@ -368,7 +385,7 @@ fun CalendarStreakCard(
                     .fillMaxWidth()
                     .padding(top = 14.dp)
                     .background(CardDarkElevated, RoundedCornerShape(18.dp))
-                    .border(1.dp, if (selectedDayWorkouts.isNotEmpty() || selectedDaySteps > 0) NeonTeal.copy(alpha = 0.45f) else CardBorderWhite, RoundedCornerShape(18.dp))
+                    .border(1.dp, if (hasWorkout || selectedDaySteps > 0) NeonTeal.copy(alpha = 0.45f) else CardBorderWhite, RoundedCornerShape(18.dp))
                     .padding(14.dp)
             ) {
                 // Header Date and Status
@@ -402,8 +419,8 @@ fun CalendarStreakCard(
                     }
 
                     Text(
-                        text = if (selectedDayWorkouts.isNotEmpty()) "Workout Done" else "Rest Day",
-                        color = if (selectedDayWorkouts.isNotEmpty()) NeonTeal else TextGray,
+                        text = if (hasWorkout) "Workout Done" else "Rest Day",
+                        color = if (hasWorkout) NeonTeal else TextGray,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -448,7 +465,7 @@ fun CalendarStreakCard(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = if (selectedDayWorkouts.isNotEmpty()) "${selectedDayWorkouts.size} workout${if (selectedDayWorkouts.size > 1) "s" else ""}" else "Rest day",
+                                text = if (hasWorkout) "$sessionCount workout${if (sessionCount > 1) "s" else ""}" else "Rest day",
                                 color = TextSilver,
                                 fontSize = 10.sp
                             )
@@ -496,7 +513,69 @@ fun CalendarStreakCard(
                 }
 
                 // Workouts List (if any completed)
-                if (selectedDayWorkouts.isNotEmpty()) {
+                if (selectedDayWorkoutLogs.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Completed Sessions",
+                        color = TextGray,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    selectedDayWorkoutLogs.forEach { log ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 3.dp)
+                                .background(CardDark.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.FitnessCenter,
+                                    contentDescription = null,
+                                    tint = NeonTeal,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Column {
+                                    Text(
+                                        text = log.workoutName,
+                                        color = TextWhite,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    if (log.totalVolumeKg > 0f) {
+                                        Text(
+                                            text = "${log.totalVolumeKg.toInt()} kg volume • ${log.completedSets} sets",
+                                            color = TextGray,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "${log.durationMins} min",
+                                    color = TextSilver,
+                                    fontSize = 11.sp
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.Rounded.CheckCircle,
+                                    contentDescription = "Completed",
+                                    tint = NeonTeal,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        }
+                    }
+                } else if (selectedDayWorkouts.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         text = "Completed Sessions",
@@ -555,15 +634,19 @@ fun CalendarStreakCard(
     }
 }
 
-private fun calculateCurrentStreak(workouts: List<WorkoutEntity>): Int {
-    val completedWorkouts = workouts.filter { it.completed }
-    if (completedWorkouts.isEmpty()) return 0
-
+private fun calculateCurrentStreak(
+    workouts: List<WorkoutEntity>,
+    workoutLogs: List<WorkoutLogEntity> = emptyList()
+): Int {
     val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-    val dates = completedWorkouts.map {
+    val fromWorkouts = workouts.filter { it.completed }.map {
         sdf.format(Date(it.date))
-    }.distinct().sortedDescending()
+    }
+    val fromLogs = workoutLogs.map {
+        if (it.dateString.isNotBlank()) it.dateString else sdf.format(Date(it.date))
+    }
 
+    val dates = (fromWorkouts + fromLogs).distinct().sortedDescending()
     if (dates.isEmpty()) return 0
 
     val todayKey = sdf.format(Date())

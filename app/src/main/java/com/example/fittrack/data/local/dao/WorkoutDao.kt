@@ -6,19 +6,21 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import com.example.fittrack.data.local.entity.DailyStepEntity
 import com.example.fittrack.data.local.entity.ExerciseEntity
 import com.example.fittrack.data.local.entity.GoalEntity
 import com.example.fittrack.data.local.entity.PersonalRecordEntity
 import com.example.fittrack.data.local.entity.UserProfileEntity
 import com.example.fittrack.data.local.entity.WaterLogEntity
 import com.example.fittrack.data.local.entity.WorkoutEntity
+import com.example.fittrack.data.local.entity.WorkoutLogEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface WorkoutDao {
 
     // -------------------------
-    // WORKOUTS
+    // WORKOUTS (Routines / Blueprints)
     // -------------------------
 
     @Insert
@@ -41,6 +43,46 @@ interface WorkoutDao {
 
     @Query("DELETE FROM workouts")
     suspend fun deleteAllWorkouts()
+
+
+    // -------------------------
+    // WORKOUT LOGS (Immutable Completed Session History)
+    // -------------------------
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertWorkoutLog(workoutLog: WorkoutLogEntity): Long
+
+    @Query("SELECT * FROM workout_logs ORDER BY date DESC")
+    fun getAllWorkoutLogs(): Flow<List<WorkoutLogEntity>>
+
+    @Query("SELECT * FROM workout_logs WHERE dateString = :dateString ORDER BY date DESC")
+    fun getWorkoutLogsForDate(dateString: String): Flow<List<WorkoutLogEntity>>
+
+    @Query("DELETE FROM workout_logs WHERE id = :id")
+    suspend fun deleteWorkoutLog(id: Int)
+
+    @Query("DELETE FROM workout_logs")
+    suspend fun deleteAllWorkoutLogs()
+
+
+    // -------------------------
+    // DAILY STEPS (Persistent Date-Keyed Steps History)
+    // -------------------------
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrUpdateDailySteps(dailyStep: DailyStepEntity)
+
+    @Query("SELECT * FROM daily_steps WHERE date = :date LIMIT 1")
+    suspend fun getDailySteps(date: String): DailyStepEntity?
+
+    @Query("SELECT * FROM daily_steps ORDER BY date DESC")
+    fun getAllDailySteps(): Flow<List<DailyStepEntity>>
+
+    @Query("DELETE FROM daily_steps WHERE date = :date")
+    suspend fun deleteDailyStepsForDate(date: String)
+
+    @Query("DELETE FROM daily_steps")
+    suspend fun deleteAllDailySteps()
 
 
     // -------------------------

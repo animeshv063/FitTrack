@@ -89,12 +89,13 @@ fun HomeScreen(
     viewModel: WorkoutViewModel
 ) {
     val workouts by viewModel.workouts.collectAsState()
+    val workoutLogs by viewModel.workoutLogs.collectAsState()
     val steps by viewModel.steps.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
     val waterLogs by viewModel.waterLogs.collectAsState()
 
     val calories = (steps * 0.04).toInt()
-    val completedWorkouts = workouts.count { it.completed }
+    val completedWorkouts = if (workoutLogs.isNotEmpty()) workoutLogs.size else workouts.count { it.completed }
     val latestWorkout = workouts.firstOrNull { !it.completed } ?: workouts.firstOrNull()
 
     val totalWaterMl = waterLogs.sumOf { it.amountMl }
@@ -288,6 +289,7 @@ fun HomeScreen(
                 // Calendar Streak Heatmap Component
                 CalendarStreakCard(
                     workouts = workouts,
+                    workoutLogs = workoutLogs,
                     getStepsForDate = { dateKey -> viewModel.getStepsForDate(dateKey) },
                     todaySteps = steps
                 )

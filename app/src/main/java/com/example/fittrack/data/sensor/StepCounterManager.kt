@@ -6,9 +6,15 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import com.example.fittrack.data.local.database.FitTrackDatabase
+import com.example.fittrack.data.local.entity.DailyStepEntity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -16,13 +22,14 @@ import java.util.Locale
 /**
  * StepCounterManager
  * Robust, thread-safe, battery-optimized Singleton step tracker.
- * Counts daily steps continuously with clean midnight rollover and isolated historical archives.
+ * Counts daily steps continuously with clean midnight rollover and permanent SQLite & SharedPreferences persistence.
  */
 class StepCounterManager private constructor(
     context: Context
 ) : SensorEventListener {
 
     private val appContext: Context = context.applicationContext
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val prefs: SharedPreferences =
         appContext.getSharedPreferences("fittrack_step_prefs", Context.MODE_PRIVATE)
@@ -53,7 +60,7 @@ class StepCounterManager private constructor(
 
     /**
      * Loads today's persisted steps from disk.
-     * Automatically handles midnight rollover (new day at 00:00 resets today's steps to 0 while archiving previous day).
+     * Automatically handles midnight rollover (new day at 00:00 archives previous day to SQLite and resets today's steps cleanly).
      */
     @Synchronized
     fun loadPersistedSteps() {
@@ -61,7 +68,7 @@ class StepCounterManager private constructor(
         val savedDate = prefs.getString(KEY_LAST_RECORDED_DATE, null)
 
         if (savedDate == null) {
-            // First run or initial state: record today's date cleanly
+            // First run: record today's date cleanly
             val savedSteps = prefs.getInt(KEY_TODAY_STEPS, 0)
             prefs.edit()
                 .putString(KEY_LAST_RECORDED_DATE, today)
@@ -69,20 +76,44 @@ class StepCounterManager private constructor(
                 .putInt("steps_$today", savedSteps)
                 .apply()
             _steps.value = savedSteps
+            persistToDatabase(today, savedSteps)
         } else if (savedDate != today) {
-            // Day changed at 00:00! Archive previous day's steps and reset today's accumulator to 0
+            // Day changed! Archive previous day's steps to disk and database
             val previousDaySteps = prefs.getInt(KEY_TODAY_STEPS, 0)
             prefs.edit()
                 .putInt("steps_$savedDate", previousDaySteps)
                 .putInt(KEY_TODAY_STEPS, 0)
                 .putInt("steps_$today", 0)
                 .putString(KEY_LAST_RECORDED_DATE, today)
-                .putInt(KEY_LAST_SENSOR_READING, -1)
                 .apply()
+
+            persistToDatabase(savedDate, previousDaySteps)
+            persistToDatabase(today, 0)
             _steps.value = 0
         } else {
             val savedSteps = prefs.getInt(KEY_TODAY_STEPS, 0)
             _steps.value = savedSteps
+        }
+    }
+
+    private fun persistToDatabase(dateStr: String, stepCount: Int) {
+        scope.launch {
+            try {
+                val db = FitTrackDatabase.getDatabase(appContext)
+                val calories = (stepCount * 0.04).toInt()
+                val distanceKm = stepCount * 0.00075
+                db.workoutDao().insertOrUpdateDailySteps(
+                    DailyStepEntity(
+                        date = dateStr,
+                        steps = stepCount,
+                        calories = calories,
+                        distanceKm = distanceKm,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -120,7 +151,7 @@ class StepCounterManager private constructor(
         val today = getTodayDateString()
         val savedDate = prefs.getString(KEY_LAST_RECORDED_DATE, null)
 
-        // If day changed while app is running (00:00 midnight rollover), reset for new day
+        // If midnight passed while listener is active, handle rollover immediately
         if (savedDate != today) {
             loadPersistedSteps()
         }
@@ -131,18 +162,32 @@ class StepCounterManager private constructor(
             var currentTodaySteps = prefs.getInt(KEY_TODAY_STEPS, 0)
 
             if (lastSensorReading == -1) {
-                // First event received for this session/day: establish sensor baseline
+                // First event received ever: establish sensor baseline
                 prefs.edit()
                     .putInt(KEY_LAST_SENSOR_READING, rawSensorSteps)
                     .putString(KEY_LAST_RECORDED_DATE, today)
                     .putInt(KEY_TODAY_STEPS, currentTodaySteps)
                     .putInt("steps_$today", currentTodaySteps)
                     .apply()
+                persistToDatabase(today, currentTodaySteps)
             } else if (rawSensorSteps < lastSensorReading) {
-                // Device rebooted: sensor counter reset to 0
-                prefs.edit()
-                    .putInt(KEY_LAST_SENSOR_READING, rawSensorSteps)
-                    .apply()
+                // Device rebooted: hardware sensor reset to 0
+                val delta = rawSensorSteps
+                if (delta > 0) {
+                    currentTodaySteps += delta
+                    _steps.value = currentTodaySteps
+                    prefs.edit()
+                        .putInt(KEY_TODAY_STEPS, currentTodaySteps)
+                        .putInt("steps_$today", currentTodaySteps)
+                        .putInt(KEY_LAST_SENSOR_READING, rawSensorSteps)
+                        .putString(KEY_LAST_RECORDED_DATE, today)
+                        .apply()
+                    persistToDatabase(today, currentTodaySteps)
+                } else {
+                    prefs.edit()
+                        .putInt(KEY_LAST_SENSOR_READING, rawSensorSteps)
+                        .apply()
+                }
             } else {
                 val delta = rawSensorSteps - lastSensorReading
                 if (delta > 0) {
@@ -154,6 +199,7 @@ class StepCounterManager private constructor(
                         .putInt(KEY_LAST_SENSOR_READING, rawSensorSteps)
                         .putString(KEY_LAST_RECORDED_DATE, today)
                         .apply()
+                    persistToDatabase(today, currentTodaySteps)
                 }
             }
         } else if (event.sensor.type == Sensor.TYPE_STEP_DETECTOR) {
@@ -165,6 +211,7 @@ class StepCounterManager private constructor(
                     .putInt("steps_$today", currentTodaySteps)
                     .putString(KEY_LAST_RECORDED_DATE, today)
                     .apply()
+                persistToDatabase(today, currentTodaySteps)
             }
         }
     }
@@ -176,7 +223,6 @@ class StepCounterManager private constructor(
      */
     @Synchronized
     fun getStepsForDate(dateKey: String): Int {
-        loadPersistedSteps()
         val today = getTodayDateString()
         return if (dateKey == today) {
             _steps.value
@@ -195,10 +241,10 @@ class StepCounterManager private constructor(
         prefs.edit()
             .putInt(KEY_TODAY_STEPS, sanitized)
             .putInt("steps_$today", sanitized)
-            .putInt(KEY_LAST_SENSOR_READING, -1)
             .putString(KEY_LAST_RECORDED_DATE, today)
             .apply()
         _steps.value = sanitized
+        persistToDatabase(today, sanitized)
     }
 
     /**
@@ -207,13 +253,14 @@ class StepCounterManager private constructor(
     @Synchronized
     fun resetSteps() {
         val today = getTodayDateString()
+        prefs.edit().clear().apply()
         prefs.edit()
             .putInt(KEY_TODAY_STEPS, 0)
             .putInt("steps_$today", 0)
-            .putInt(KEY_LAST_SENSOR_READING, -1)
             .putString(KEY_LAST_RECORDED_DATE, today)
             .apply()
         _steps.value = 0
+        persistToDatabase(today, 0)
     }
 
     companion object {

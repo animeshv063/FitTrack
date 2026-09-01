@@ -3,12 +3,14 @@ package com.example.fittrack.presentation.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.fittrack.data.local.entity.DailyStepEntity
 import com.example.fittrack.data.local.entity.ExerciseEntity
 import com.example.fittrack.data.local.entity.GoalEntity
 import com.example.fittrack.data.local.entity.PersonalRecordEntity
 import com.example.fittrack.data.local.entity.UserProfileEntity
 import com.example.fittrack.data.local.entity.WaterLogEntity
 import com.example.fittrack.data.local.entity.WorkoutEntity
+import com.example.fittrack.data.local.entity.WorkoutLogEntity
 import com.example.fittrack.data.repository.WorkoutRepository
 import com.example.fittrack.data.sensor.StepCounterManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,6 +41,15 @@ class WorkoutViewModel(
 
     val steps = stepCounterManager.steps
 
+    val dailySteps: StateFlow<List<DailyStepEntity>> =
+        repository
+            .getAllDailySteps()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
+
     init {
         viewModelScope.launch {
             val current = repository.getUserProfileOnce()
@@ -57,12 +68,14 @@ class WorkoutViewModel(
     }
 
     fun getStepsForDate(dateKey: String): Int {
-        return stepCounterManager.getStepsForDate(dateKey)
+        val managerSteps = stepCounterManager.getStepsForDate(dateKey)
+        if (managerSteps > 0) return managerSteps
+        val dbRecord = dailySteps.value.find { it.date == dateKey }
+        return dbRecord?.steps ?: 0
     }
 
     /**
-     * Checks if midnight has passed. If so, automatically resets uncompleted workout exercise ticks
-     * so that the new day starts with a clean volume state, while all completed workouts stay permanently saved.
+     * Checks if midnight has passed and ensures step and exercise state are synced.
      */
     fun checkAndPerformDailyRollover(context: Context) {
         viewModelScope.launch {
@@ -98,7 +111,7 @@ class WorkoutViewModel(
 
 
     // -------------------------
-    // WORKOUTS
+    // WORKOUTS (Routines / Blueprints)
     // -------------------------
 
     val workouts: StateFlow<List<WorkoutEntity>> =
@@ -227,6 +240,48 @@ class WorkoutViewModel(
             } else {
                 addPresetWorkout("$dayTitle: $routineName", durationMin, exercises, onReady)
             }
+        }
+    }
+
+
+    // -------------------------
+    // WORKOUT LOGS (Permanent Session History)
+    // -------------------------
+
+    val workoutLogs: StateFlow<List<WorkoutLogEntity>> =
+        repository
+            .getAllWorkoutLogs()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
+
+    fun logCompletedWorkout(
+        workoutId: Int,
+        workoutName: String,
+        durationMins: Int,
+        totalVolumeKg: Float,
+        completedSets: Int,
+        completedReps: Int,
+        date: Long = System.currentTimeMillis()
+    ) {
+        viewModelScope.launch {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            val dateStr = sdf.format(Date(date))
+
+            repository.insertWorkoutLog(
+                WorkoutLogEntity(
+                    workoutId = workoutId,
+                    workoutName = workoutName,
+                    durationMins = durationMins,
+                    totalVolumeKg = totalVolumeKg,
+                    completedSets = completedSets,
+                    completedReps = completedReps,
+                    date = date,
+                    dateString = dateStr
+                )
+            )
         }
     }
 

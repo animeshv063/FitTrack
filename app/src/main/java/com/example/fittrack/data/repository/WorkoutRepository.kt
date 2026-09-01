@@ -1,12 +1,14 @@
 package com.example.fittrack.data.repository
 
 import com.example.fittrack.data.local.dao.WorkoutDao
+import com.example.fittrack.data.local.entity.DailyStepEntity
 import com.example.fittrack.data.local.entity.ExerciseEntity
 import com.example.fittrack.data.local.entity.GoalEntity
 import com.example.fittrack.data.local.entity.PersonalRecordEntity
 import com.example.fittrack.data.local.entity.UserProfileEntity
 import com.example.fittrack.data.local.entity.WaterLogEntity
 import com.example.fittrack.data.local.entity.WorkoutEntity
+import com.example.fittrack.data.local.entity.WorkoutLogEntity
 import kotlinx.coroutines.flow.Flow
 
 class WorkoutRepository(
@@ -14,7 +16,7 @@ class WorkoutRepository(
 ) {
 
     // -------------------------
-    // WORKOUTS
+    // WORKOUTS (Routines / Blueprints)
     // -------------------------
 
     fun getWorkouts(): Flow<List<WorkoutEntity>> {
@@ -43,6 +45,56 @@ class WorkoutRepository(
 
     suspend fun deleteAllWorkouts() {
         workoutDao.deleteAllWorkouts()
+    }
+
+
+    // -------------------------
+    // WORKOUT LOGS (Immutable Completed Session History)
+    // -------------------------
+
+    fun getAllWorkoutLogs(): Flow<List<WorkoutLogEntity>> {
+        return workoutDao.getAllWorkoutLogs()
+    }
+
+    fun getWorkoutLogsForDate(dateString: String): Flow<List<WorkoutLogEntity>> {
+        return workoutDao.getWorkoutLogsForDate(dateString)
+    }
+
+    suspend fun insertWorkoutLog(log: WorkoutLogEntity): Long {
+        return workoutDao.insertWorkoutLog(log)
+    }
+
+    suspend fun deleteWorkoutLog(id: Int) {
+        workoutDao.deleteWorkoutLog(id)
+    }
+
+    suspend fun deleteAllWorkoutLogs() {
+        workoutDao.deleteAllWorkoutLogs()
+    }
+
+
+    // -------------------------
+    // DAILY STEPS (Persistent Daily Step Records)
+    // -------------------------
+
+    fun getAllDailySteps(): Flow<List<DailyStepEntity>> {
+        return workoutDao.getAllDailySteps()
+    }
+
+    suspend fun getDailySteps(date: String): DailyStepEntity? {
+        return workoutDao.getDailySteps(date)
+    }
+
+    suspend fun saveDailySteps(dailyStep: DailyStepEntity) {
+        workoutDao.insertOrUpdateDailySteps(dailyStep)
+    }
+
+    suspend fun deleteDailyStepsForDate(date: String) {
+        workoutDao.deleteDailyStepsForDate(date)
+    }
+
+    suspend fun deleteAllDailySteps() {
+        workoutDao.deleteAllDailySteps()
     }
 
 
@@ -198,6 +250,8 @@ class WorkoutRepository(
 
     suspend fun resetAllData() {
         workoutDao.deleteAllWorkouts()
+        workoutDao.deleteAllWorkoutLogs()
+        workoutDao.deleteAllDailySteps()
         workoutDao.deleteAllExercises()
         workoutDao.deleteAllGoals()
         workoutDao.deleteAllWaterLogs()

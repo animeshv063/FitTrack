@@ -293,6 +293,23 @@ fun WorkoutDetailScreen(
                                     recordedDurationSeconds = sessionSeconds
 
                                     val finalDurationMins = maxOf(1, (sessionSeconds + 59) / 60)
+                                    val completedSetsCount = exercises.sumOf { it.completedSets }
+                                    val completedRepsCount = exercises.sumOf { it.completedSets * it.reps }
+                                    val sessionVolume = exercises.sumOf { it.completedSets * it.reps * it.weight }.toFloat()
+                                    val routineName = currentWorkout?.name ?: "Workout Session"
+
+                                    // 1. Permanently log completed workout session in SQLite Room database
+                                    viewModel.logCompletedWorkout(
+                                        workoutId = workoutId,
+                                        workoutName = routineName,
+                                        durationMins = finalDurationMins,
+                                        totalVolumeKg = sessionVolume,
+                                        completedSets = completedSetsCount,
+                                        completedReps = completedRepsCount,
+                                        date = System.currentTimeMillis()
+                                    )
+
+                                    // 2. Update routine template state
                                     if (currentWorkout != null) {
                                         viewModel.updateWorkout(
                                             currentWorkout.copy(

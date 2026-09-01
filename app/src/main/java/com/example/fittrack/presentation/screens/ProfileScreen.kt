@@ -120,6 +120,7 @@ fun ProfileScreen(
     val userProfile by viewModel.userProfile.collectAsState()
     val steps by viewModel.steps.collectAsState()
     val workouts by viewModel.workouts.collectAsState()
+    val workoutLogs by viewModel.workoutLogs.collectAsState()
     val exercises by viewModel.allExercises.collectAsState()
     val goals by viewModel.goals.collectAsState()
 
@@ -130,8 +131,10 @@ fun ProfileScreen(
         viewModel.startStepCounter()
     }
 
-    val completedWorkouts = workouts.count { it.completed }
-    val totalVolume = exercises.sumOf { it.sets * it.reps * it.weight }
+    val completedWorkouts = if (workoutLogs.isNotEmpty()) workoutLogs.size else workouts.count { it.completed }
+    val loggedVolume = workoutLogs.sumOf { it.totalVolumeKg.toDouble() }.toInt()
+    val exerciseVolume = exercises.sumOf { it.sets * it.reps * it.weight }
+    val totalVolume = maxOf(loggedVolume, exerciseVolume)
     val currentProfile = userProfile ?: UserProfileEntity()
     val dynamicTitle = viewModel.getAthleteTitle(completedWorkouts)
 

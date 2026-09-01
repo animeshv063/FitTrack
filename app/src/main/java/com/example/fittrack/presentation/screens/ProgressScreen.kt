@@ -79,6 +79,7 @@ fun ProgressScreen(
     viewModel: WorkoutViewModel
 ) {
     val workouts by viewModel.workouts.collectAsState()
+    val workoutLogs by viewModel.workoutLogs.collectAsState()
     val exercises by viewModel.allExercises.collectAsState()
     val personalRecords by viewModel.personalRecords.collectAsState()
     val selectedTimeframe by viewModel.selectedTimeframe.collectAsState()
@@ -87,7 +88,17 @@ fun ProgressScreen(
 
     val timeframes = listOf("7 Days", "30 Days", "All Time")
 
-    // Filter workouts and exercises according to selected timeframe
+    // Filter workout logs and workouts according to selected timeframe
+    val relevantLogs = remember(workoutLogs, selectedTimeframe) {
+        val now = System.currentTimeMillis()
+        val cutoff = when (selectedTimeframe) {
+            "7 Days" -> now - (7L * 24 * 60 * 60 * 1000)
+            "30 Days" -> now - (30L * 24 * 60 * 60 * 1000)
+            else -> 0L
+        }
+        workoutLogs.filter { it.date >= cutoff }
+    }
+
     val relevantWorkouts = remember(workouts, selectedTimeframe) {
         val now = System.currentTimeMillis()
         val cutoff = when (selectedTimeframe) {
@@ -101,25 +112,46 @@ fun ProgressScreen(
         relevantWorkouts.map { it.id }.toSet()
     }
 
-    // Real-time volume calculations across completed sets within timeframe
-    val totalVolume = remember(exercises, relevantWorkoutIds) {
+    // Real-time volume calculations across completed logs & active sets
+    val activeExercisesVolume = remember(exercises, relevantWorkoutIds) {
         exercises.filter { relevantWorkoutIds.contains(it.workoutId) }
             .sumOf { it.completedSets * it.reps * it.weight }
     }
-    val totalSets = remember(exercises, relevantWorkoutIds) {
+    val loggedVolume = remember(relevantLogs) {
+        relevantLogs.sumOf { it.totalVolumeKg.toDouble() }.toInt()
+    }
+    val totalVolume = remember(activeExercisesVolume, loggedVolume) {
+        maxOf(activeExercisesVolume, loggedVolume)
+    }
+
+    val activeSets = remember(exercises, relevantWorkoutIds) {
         exercises.filter { relevantWorkoutIds.contains(it.workoutId) }
             .sumOf { it.completedSets }
     }
-    val totalReps = remember(exercises, relevantWorkoutIds) {
+    val loggedSets = remember(relevantLogs) {
+        relevantLogs.sumOf { it.completedSets }
+    }
+    val totalSets = remember(activeSets, loggedSets) {
+        maxOf(activeSets, loggedSets)
+    }
+
+    val activeReps = remember(exercises, relevantWorkoutIds) {
         exercises.filter { relevantWorkoutIds.contains(it.workoutId) }
             .sumOf { it.completedSets * it.reps }
     }
-    val completedWorkouts = remember(relevantWorkouts) {
-        relevantWorkouts.count { it.completed }
+    val loggedReps = remember(relevantLogs) {
+        relevantLogs.sumOf { it.completedReps }
+    }
+    val totalReps = remember(activeReps, loggedReps) {
+        maxOf(activeReps, loggedReps)
     }
 
-    // Weekly Volume Bar Chart data across completed sets immediately
-    val chartData = remember(relevantWorkouts, exercises) {
+    val completedWorkouts = remember(relevantLogs, relevantWorkouts) {
+        if (relevantLogs.isNotEmpty()) relevantLogs.size else relevantWorkouts.count { it.completed }
+    }
+
+    // Weekly Volume Bar Chart data
+    val chartData = remember(relevantLogs, relevantWorkouts, exercises) {
         val daysMap = mutableMapOf(
             Calendar.MONDAY to 0f,
             Calendar.TUESDAY to 0f,
@@ -130,12 +162,20 @@ fun ProgressScreen(
             Calendar.SUNDAY to 0f
         )
 
-        relevantWorkouts.forEach { w ->
-            val vol = exercises.filter { it.workoutId == w.id }
-                .sumOf { it.completedSets * it.reps * it.weight }.toFloat()
-            val cal = Calendar.getInstance().apply { timeInMillis = w.date }
-            val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
-            daysMap[dayOfWeek] = (daysMap[dayOfWeek] ?: 0f) + vol
+        if (relevantLogs.isNotEmpty()) {
+            relevantLogs.forEach { log ->
+                val cal = Calendar.getInstance().apply { timeInMillis = log.date }
+                val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+                daysMap[dayOfWeek] = (daysMap[dayOfWeek] ?: 0f) + log.totalVolumeKg
+            }
+        } else {
+            relevantWorkouts.forEach { w ->
+                val vol = exercises.filter { it.workoutId == w.id }
+                    .sumOf { it.completedSets * it.reps * it.weight }.toFloat()
+                val cal = Calendar.getInstance().apply { timeInMillis = w.date }
+                val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+                daysMap[dayOfWeek] = (daysMap[dayOfWeek] ?: 0f) + vol
+            }
         }
 
         listOf(
@@ -149,25 +189,43 @@ fun ProgressScreen(
         )
     }
 
-    val muscleSplit = remember(exercises, relevantWorkoutIds) {
+    val muscleSplit = remember(exercises, relevantWorkoutIds, relevantLogs) {
         val map = mutableMapOf(
             "Chest & Shoulders" to 0f,
             "Back & Biceps" to 0f,
             "Legs & Core" to 0f,
             "Cardio & Arms" to 0f
         )
-        exercises.filter { relevantWorkoutIds.contains(it.workoutId) }.forEach { ex ->
-            val nameLower = ex.name.lowercase()
-            val vol = (ex.completedSets * ex.reps * ex.weight).toFloat()
-            when {
-                nameLower.contains("bench") || nameLower.contains("press") || nameLower.contains("shoulder") || nameLower.contains("fly") ->
-                    map["Chest & Shoulders"] = (map["Chest & Shoulders"] ?: 0f) + vol
-                nameLower.contains("pull") || nameLower.contains("row") || nameLower.contains("lat") || nameLower.contains("curl") ->
-                    map["Back & Biceps"] = (map["Back & Biceps"] ?: 0f) + vol
-                nameLower.contains("squat") || nameLower.contains("leg") || nameLower.contains("deadlift") || nameLower.contains("calf") ->
-                    map["Legs & Core"] = (map["Legs & Core"] ?: 0f) + vol
-                else ->
-                    map["Cardio & Arms"] = (map["Cardio & Arms"] ?: 0f) + vol
+
+        if (relevantLogs.isNotEmpty()) {
+            relevantLogs.forEach { log ->
+                val nameLower = log.workoutName.lowercase()
+                val vol = log.totalVolumeKg
+                when {
+                    nameLower.contains("chest") || nameLower.contains("push") || nameLower.contains("bench") || nameLower.contains("shoulder") ->
+                        map["Chest & Shoulders"] = (map["Chest & Shoulders"] ?: 0f) + vol
+                    nameLower.contains("back") || nameLower.contains("pull") || nameLower.contains("bicep") || nameLower.contains("row") ->
+                        map["Back & Biceps"] = (map["Back & Biceps"] ?: 0f) + vol
+                    nameLower.contains("leg") || nameLower.contains("squat") || nameLower.contains("quad") || nameLower.contains("core") ->
+                        map["Legs & Core"] = (map["Legs & Core"] ?: 0f) + vol
+                    else ->
+                        map["Cardio & Arms"] = (map["Cardio & Arms"] ?: 0f) + vol
+                }
+            }
+        } else {
+            exercises.filter { relevantWorkoutIds.contains(it.workoutId) }.forEach { ex ->
+                val nameLower = ex.name.lowercase()
+                val vol = (ex.completedSets * ex.reps * ex.weight).toFloat()
+                when {
+                    nameLower.contains("bench") || nameLower.contains("press") || nameLower.contains("shoulder") || nameLower.contains("fly") ->
+                        map["Chest & Shoulders"] = (map["Chest & Shoulders"] ?: 0f) + vol
+                    nameLower.contains("pull") || nameLower.contains("row") || nameLower.contains("lat") || nameLower.contains("curl") ->
+                        map["Back & Biceps"] = (map["Back & Biceps"] ?: 0f) + vol
+                    nameLower.contains("squat") || nameLower.contains("leg") || nameLower.contains("deadlift") || nameLower.contains("calf") ->
+                        map["Legs & Core"] = (map["Legs & Core"] ?: 0f) + vol
+                    else ->
+                        map["Cardio & Arms"] = (map["Cardio & Arms"] ?: 0f) + vol
+                }
             }
         }
         map

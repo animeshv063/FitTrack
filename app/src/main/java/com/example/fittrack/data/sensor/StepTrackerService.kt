@@ -12,15 +12,22 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.example.fittrack.MainActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import java.util.Locale
 
 /**
  * StepTrackerService
- * Background foreground service that ensures hardware step counting remains active
+ * Background foreground service that ensures hardware step counting remains continuously active
  * even when the user exits the app.
  */
 class StepTrackerService : Service() {
 
     private lateinit var stepCounterManager: StepCounterManager
+    private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
+    private var notificationJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -29,29 +36,48 @@ class StepTrackerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val notification = createNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH
-            )
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        val notification = createNotification(stepCounterManager.steps.value)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH
+                )
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
 
         stepCounterManager.start()
+
+        // Dynamically update notification text when steps increment
+        notificationJob?.cancel()
+        notificationJob = serviceScope.launch {
+            stepCounterManager.steps.collect { currentSteps ->
+                updateNotification(currentSteps)
+            }
+        }
+
         return START_STICKY
+    }
+
+    private fun updateNotification(steps: Int) {
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        manager?.notify(NOTIFICATION_ID, createNotification(steps))
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        notificationJob?.cancel()
         stepCounterManager.stop()
     }
 
@@ -64,7 +90,7 @@ class StepTrackerService : Service() {
                 "Step Tracking Service",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Monitors daily steps in background"
+                description = "Monitors daily steps continuously in background"
                 setShowBadge(false)
             }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -72,7 +98,7 @@ class StepTrackerService : Service() {
         }
     }
 
-    private fun createNotification(): Notification {
+    private fun createNotification(currentSteps: Int): Notification {
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
@@ -80,12 +106,15 @@ class StepTrackerService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val stepText = String.format(Locale.US, "%,d steps tracked today", currentSteps)
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("FitTrack Pedometer")
-            .setContentText("Actively recording steps in background")
+            .setContentText(stepText)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }
