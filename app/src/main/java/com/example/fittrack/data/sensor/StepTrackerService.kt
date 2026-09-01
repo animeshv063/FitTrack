@@ -79,24 +79,27 @@ class StepTrackerService : Service() {
     }
 
     /**
-     * Updates notification only when significant step progress (>= 500 steps)
-     * or sufficient time (>= 5 minutes) has elapsed, preventing frequent notification churn.
+     * Updates notification only when reaching target milestone thresholds (50% or 100% of step goal),
+     * or when forced (e.g. service startup / goal change), completely eliminating frequent 500-step notification churn.
      */
     private fun updateNotification(steps: Int, force: Boolean = false) {
-        val now = System.currentTimeMillis()
-        val stepDiff = abs(steps - lastNotifiedSteps)
-        val timeDiff = now - lastNotificationTimeMs
+        val prefs = getSharedPreferences("fittrack_step_prefs", Context.MODE_PRIVATE)
+        val stepGoal = prefs.getInt(KEY_USER_STEP_GOAL, 10000)
+
+        val halfGoal = stepGoal / 2
+        val fullGoal = stepGoal
 
         if (!force && lastNotifiedSteps != -1) {
-            val hasEnoughSteps = stepDiff >= STEP_NOTIFICATION_THRESHOLD
-            val hasEnoughTime = timeDiff >= TIME_NOTIFICATION_THRESHOLD_MS && stepDiff > 0
-            if (!hasEnoughSteps && !hasEnoughTime) {
+            val crossedHalf = lastNotifiedSteps < halfGoal && steps >= halfGoal
+            val crossedFull = lastNotifiedSteps < fullGoal && steps >= fullGoal
+
+            if (!crossedHalf && !crossedFull) {
                 return
             }
         }
 
         lastNotifiedSteps = steps
-        lastNotificationTimeMs = now
+        lastNotificationTimeMs = System.currentTimeMillis()
 
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         manager?.notify(NOTIFICATION_ID, createNotification(steps))
@@ -176,8 +179,6 @@ class StepTrackerService : Service() {
     companion object {
         private const val CHANNEL_ID = "fittrack_step_tracking_channel"
         private const val NOTIFICATION_ID = 1001
-        private const val STEP_NOTIFICATION_THRESHOLD = 500
-        private const val TIME_NOTIFICATION_THRESHOLD_MS = 300_000L // 5 minutes
         const val KEY_USER_STEP_GOAL = "key_user_step_goal"
 
         fun startService(context: Context) {
