@@ -17,17 +17,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.util.Locale
+import kotlin.math.abs
 
 /**
  * StepTrackerService
  * Background foreground service that ensures hardware step counting remains continuously active
- * even when the user exits the app.
+ * even when the user exits the app, with intelligent throttling to prevent notification spam.
  */
 class StepTrackerService : Service() {
 
     private lateinit var stepCounterManager: StepCounterManager
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
     private var notificationJob: Job? = null
+
+    private var lastNotifiedSteps: Int = -1
+    private var lastNotificationTimeMs: Long = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -36,7 +40,11 @@ class StepTrackerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val notification = createNotification(stepCounterManager.steps.value)
+        val initialSteps = stepCounterManager.steps.value
+        lastNotifiedSteps = initialSteps
+        lastNotificationTimeMs = System.currentTimeMillis()
+
+        val notification = createNotification(initialSteps)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 startForeground(
@@ -59,7 +67,7 @@ class StepTrackerService : Service() {
 
         stepCounterManager.start()
 
-        // Dynamically update notification text when steps increment
+        // Dynamically update notification text with intelligent throttling
         notificationJob?.cancel()
         notificationJob = serviceScope.launch {
             stepCounterManager.steps.collect { currentSteps ->
@@ -70,7 +78,26 @@ class StepTrackerService : Service() {
         return START_STICKY
     }
 
-    private fun updateNotification(steps: Int) {
+    /**
+     * Updates notification only when meaningful step progress (>= 50 steps)
+     * or sufficient time (>= 60 seconds) has elapsed, preventing notification spam.
+     */
+    private fun updateNotification(steps: Int, force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        val stepDiff = abs(steps - lastNotifiedSteps)
+        val timeDiff = now - lastNotificationTimeMs
+
+        if (!force && lastNotifiedSteps != -1) {
+            val hasEnoughSteps = stepDiff >= STEP_NOTIFICATION_THRESHOLD
+            val hasEnoughTime = timeDiff >= TIME_NOTIFICATION_THRESHOLD_MS && stepDiff > 0
+            if (!hasEnoughSteps && !hasEnoughTime) {
+                return
+            }
+        }
+
+        lastNotifiedSteps = steps
+        lastNotificationTimeMs = now
+
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         manager?.notify(NOTIFICATION_ID, createNotification(steps))
     }
@@ -79,6 +106,7 @@ class StepTrackerService : Service() {
         super.onDestroy()
         notificationJob?.cancel()
         stepCounterManager.stop()
+        lastNotifiedSteps = -1
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -92,6 +120,9 @@ class StepTrackerService : Service() {
             ).apply {
                 description = "Monitors daily steps continuously in background"
                 setShowBadge(false)
+                setSound(null, null)
+                enableVibration(false)
+                enableLights(false)
             }
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
@@ -106,22 +137,48 @@ class StepTrackerService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val stepText = String.format(Locale.US, "%,d steps tracked today", currentSteps)
+        val calories = (currentSteps * 0.04).toInt()
+        val distanceKm = currentSteps * 0.00075
+        val stepText = String.format(
+            Locale.US,
+            "%,d steps • %d kcal • %.2f km",
+            currentSteps,
+            calories,
+            distanceKm
+        )
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val prefs = getSharedPreferences("fittrack_step_prefs", Context.MODE_PRIVATE)
+        val stepGoal = prefs.getInt(KEY_USER_STEP_GOAL, 10000)
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("FitTrack Pedometer")
             .setContentText(stepText)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setShowWhen(false)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+
+        if (stepGoal > 0) {
+            builder.setProgress(stepGoal, currentSteps.coerceAtMost(stepGoal), false)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+        }
+
+        return builder.build()
     }
 
     companion object {
         private const val CHANNEL_ID = "fittrack_step_tracking_channel"
         private const val NOTIFICATION_ID = 1001
+        private const val STEP_NOTIFICATION_THRESHOLD = 50
+        private const val TIME_NOTIFICATION_THRESHOLD_MS = 60_000L
+        const val KEY_USER_STEP_GOAL = "key_user_step_goal"
 
         fun startService(context: Context) {
             val intent = Intent(context, StepTrackerService::class.java)
@@ -148,3 +205,4 @@ class StepTrackerService : Service() {
         }
     }
 }
+

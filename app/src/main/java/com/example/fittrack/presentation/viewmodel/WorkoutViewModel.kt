@@ -55,6 +55,8 @@ class WorkoutViewModel(
             val current = repository.getUserProfileOnce()
             if (current == null) {
                 repository.saveUserProfile(UserProfileEntity(name = "Athlete"))
+            } else {
+                stepCounterManager.setStepGoal(current.stepGoal)
             }
         }
     }
@@ -426,6 +428,7 @@ class WorkoutViewModel(
     }
 
     fun updateStepGoal(newStepGoal: Int) {
+        stepCounterManager.setStepGoal(newStepGoal)
         viewModelScope.launch {
             val current = userProfile.value ?: UserProfileEntity()
             repository.saveUserProfile(current.copy(stepGoal = newStepGoal))

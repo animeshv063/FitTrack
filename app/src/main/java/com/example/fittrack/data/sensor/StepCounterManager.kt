@@ -248,6 +248,16 @@ class StepCounterManager private constructor(
     }
 
     /**
+     * Updates and persists the user's step goal for notification progress.
+     */
+    @Synchronized
+    fun setStepGoal(goal: Int) {
+        if (goal > 0) {
+            prefs.edit().putInt(StepTrackerService.KEY_USER_STEP_GOAL, goal).apply()
+        }
+    }
+
+    /**
      * Resets the persisted step tracking data upon user confirmation.
      */
     @Synchronized
