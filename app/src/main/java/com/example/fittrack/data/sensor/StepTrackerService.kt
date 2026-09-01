@@ -79,8 +79,8 @@ class StepTrackerService : Service() {
     }
 
     /**
-     * Updates notification only when meaningful step progress (>= 50 steps)
-     * or sufficient time (>= 60 seconds) has elapsed, preventing notification spam.
+     * Updates notification only when significant step progress (>= 500 steps)
+     * or sufficient time (>= 5 minutes) has elapsed, preventing frequent notification churn.
      */
     private fun updateNotification(steps: Int, force: Boolean = false) {
         val now = System.currentTimeMillis()
@@ -176,8 +176,8 @@ class StepTrackerService : Service() {
     companion object {
         private const val CHANNEL_ID = "fittrack_step_tracking_channel"
         private const val NOTIFICATION_ID = 1001
-        private const val STEP_NOTIFICATION_THRESHOLD = 50
-        private const val TIME_NOTIFICATION_THRESHOLD_MS = 60_000L
+        private const val STEP_NOTIFICATION_THRESHOLD = 500
+        private const val TIME_NOTIFICATION_THRESHOLD_MS = 300_000L // 5 minutes
         const val KEY_USER_STEP_GOAL = "key_user_step_goal"
 
         fun startService(context: Context) {
