@@ -42,8 +42,12 @@ class StepTrackerService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val initialSteps = stepCounterManager.steps.value
         lastNotifiedSteps = initialSteps
-        lastNotificationTimeMs = System.currentTimeMillis()
 
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val lastNotifiedTimestamp = prefs.getLong(KEY_LAST_NOTIFICATION_TIMESTAMP, 0L)
+        val now = System.currentTimeMillis()
+
+        // Create initial foreground notification required by Android OS
         val notification = createNotification(initialSteps)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -65,13 +69,18 @@ class StepTrackerService : Service() {
             e.printStackTrace()
         }
 
+        // If 12 hours have not passed since last recorded notification timestamp, don't re-timestamp now
+        if (now - lastNotifiedTimestamp >= TWELVE_HOURS_MS) {
+            prefs.edit().putLong(KEY_LAST_NOTIFICATION_TIMESTAMP, now).apply()
+        }
+
         stepCounterManager.start()
 
-        // Dynamically update notification text with intelligent throttling
+        // Restrict notifications strictly to at most twice a day (one after every 12 hours)
         notificationJob?.cancel()
         notificationJob = serviceScope.launch {
             stepCounterManager.steps.collect { currentSteps ->
-                updateNotification(currentSteps)
+                updateNotificationThrottled(currentSteps)
             }
         }
 
@@ -79,27 +88,21 @@ class StepTrackerService : Service() {
     }
 
     /**
-     * Updates notification only when reaching target milestone thresholds (50% or 100% of step goal),
-     * or when forced (e.g. service startup / goal change), completely eliminating frequent 500-step notification churn.
+     * Updates notification strictly at most twice a day (one after every 12 hours),
+     * preventing any annoying frequent alerts or notification churn.
      */
-    private fun updateNotification(steps: Int, force: Boolean = false) {
-        val prefs = getSharedPreferences("fittrack_step_prefs", Context.MODE_PRIVATE)
-        val stepGoal = prefs.getInt(KEY_USER_STEP_GOAL, 10000)
+    private fun updateNotificationThrottled(steps: Int) {
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val lastNotifiedTimestamp = prefs.getLong(KEY_LAST_NOTIFICATION_TIMESTAMP, 0L)
+        val now = System.currentTimeMillis()
 
-        val halfGoal = stepGoal / 2
-        val fullGoal = stepGoal
-
-        if (!force && lastNotifiedSteps != -1) {
-            val crossedHalf = lastNotifiedSteps < halfGoal && steps >= halfGoal
-            val crossedFull = lastNotifiedSteps < fullGoal && steps >= fullGoal
-
-            if (!crossedHalf && !crossedFull) {
-                return
-            }
+        // Enforce strict 12-hour interval (43,200,000 ms)
+        if (now - lastNotifiedTimestamp < TWELVE_HOURS_MS) {
+            return
         }
 
+        prefs.edit().putLong(KEY_LAST_NOTIFICATION_TIMESTAMP, now).apply()
         lastNotifiedSteps = steps
-        lastNotificationTimeMs = System.currentTimeMillis()
 
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         manager?.notify(NOTIFICATION_ID, createNotification(steps))
@@ -179,7 +182,10 @@ class StepTrackerService : Service() {
     companion object {
         private const val CHANNEL_ID = "fittrack_step_tracking_channel"
         private const val NOTIFICATION_ID = 1001
+        const val PREFS_NAME = "fittrack_step_prefs"
         const val KEY_USER_STEP_GOAL = "key_user_step_goal"
+        const val KEY_LAST_NOTIFICATION_TIMESTAMP = "key_last_notification_timestamp"
+        const val TWELVE_HOURS_MS = 12 * 60 * 60 * 1000L // Restrict notification updates strictly to every 12 hours
 
         fun startService(context: Context) {
             val intent = Intent(context, StepTrackerService::class.java)

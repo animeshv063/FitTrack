@@ -303,6 +303,9 @@ fun HomeScreen(
                     stepGoal = userProfile?.stepGoal ?: 10000,
                     onUpdateStepGoal = { newGoal ->
                         viewModel.updateStepGoal(newGoal)
+                    },
+                    onUpdateSteps = { newSteps ->
+                        viewModel.updateSteps(newSteps)
                     }
                 )
 

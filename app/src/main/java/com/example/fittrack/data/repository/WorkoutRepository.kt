@@ -89,6 +89,10 @@ class WorkoutRepository(
         workoutDao.insertOrUpdateDailySteps(dailyStep)
     }
 
+    suspend fun sanitizeCorruptedStepRecords() {
+        workoutDao.sanitizeCorruptedStepRecords()
+    }
+
     suspend fun deleteDailyStepsForDate(date: String) {
         workoutDao.deleteDailyStepsForDate(date)
     }

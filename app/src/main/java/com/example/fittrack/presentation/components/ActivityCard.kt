@@ -58,7 +58,8 @@ fun ActivityCard(
     steps: Int,
     calories: Int,
     stepGoal: Int = 10000,
-    onUpdateStepGoal: ((Int) -> Unit)? = null
+    onUpdateStepGoal: ((Int) -> Unit)? = null,
+    onUpdateSteps: ((Int) -> Unit)? = null
 ) {
     val rawProgress = if (stepGoal > 0) (steps.toFloat() / stepGoal.toFloat()).coerceIn(0f, 1f) else 0f
     val animatedProgress by animateFloatAsState(
@@ -70,6 +71,10 @@ fun ActivityCard(
     var showEditGoalDialog by remember { mutableStateOf(false) }
     var editGoalText by remember { mutableStateOf(stepGoal.toString()) }
     var errorMessage by remember { mutableStateOf("") }
+
+    var showEditStepsDialog by remember { mutableStateOf(false) }
+    var editStepsText by remember { mutableStateOf(steps.toString()) }
+    var stepsErrorMessage by remember { mutableStateOf("") }
 
     val isGoalAchieved = steps >= stepGoal && stepGoal > 0
 
@@ -168,7 +173,16 @@ fun ActivityCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = if (onUpdateSteps != null) {
+                    Modifier.clickable {
+                        editStepsText = steps.toString()
+                        stepsErrorMessage = ""
+                        showEditStepsDialog = true
+                    }
+                } else Modifier
+            ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.DirectionsWalk,
                     contentDescription = null,
@@ -336,6 +350,122 @@ fun ActivityCard(
             },
             dismissButton = {
                 TextButton(onClick = { showEditGoalDialog = false }) {
+                    Text("Cancel", color = TextGray)
+                }
+            }
+        )
+    }
+
+    // Calibrate / Edit Today's Steps Modal Dialog
+    if (showEditStepsDialog) {
+        val stepPresets = listOf(0, 3000, 5000, 8000, 10000, 12000)
+
+        AlertDialog(
+            onDismissRequest = { showEditStepsDialog = false },
+            containerColor = CardDark,
+            titleContentColor = TextWhite,
+            textContentColor = TextSilver,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.DirectionsWalk,
+                        contentDescription = null,
+                        tint = NeonCyan,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Calibrate Today's Steps", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Manually adjust today's step count if sensor recorded inflated or inaccurate data:",
+                        color = TextGray,
+                        fontSize = 13.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    OutlinedTextField(
+                        value = editStepsText,
+                        onValueChange = {
+                            editStepsText = it.filter { c -> c.isDigit() }
+                            stepsErrorMessage = ""
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Today's Steps") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextWhite,
+                            unfocusedTextColor = TextWhite,
+                            focusedBorderColor = NeonCyan,
+                            unfocusedBorderColor = CardBorderWhite,
+                            focusedLabelColor = NeonCyan
+                        ),
+                        singleLine = true
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text("Quick Presets:", color = TextWhite, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(stepPresets) { preset ->
+                            val isSelected = editStepsText == preset.toString()
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        if (isSelected) NeonCyan.copy(alpha = 0.2f) else CardDarkElevated,
+                                        RoundedCornerShape(10.dp)
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (isSelected) NeonCyan else CardBorderWhite,
+                                        RoundedCornerShape(10.dp)
+                                    )
+                                    .clickable {
+                                        editStepsText = preset.toString()
+                                        stepsErrorMessage = ""
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = String.format(Locale.US, "%,d", preset),
+                                    color = if (isSelected) NeonCyan else TextWhite,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    if (stepsErrorMessage.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = stepsErrorMessage, color = DangerRed, fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val parsed = editStepsText.toIntOrNull()
+                        if (parsed == null || parsed < 0 || parsed > 60000) {
+                            stepsErrorMessage = "Please enter steps between 0 and 60,000"
+                        } else {
+                            onUpdateSteps?.invoke(parsed)
+                            showEditStepsDialog = false
+                        }
+                    }
+                ) {
+                    Text("Apply Steps", color = NeonCyan, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditStepsDialog = false }) {
                     Text("Cancel", color = TextGray)
                 }
             }

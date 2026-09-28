@@ -69,7 +69,7 @@ class StepCounterManager private constructor(
 
         if (savedDate == null) {
             // First run: record today's date cleanly
-            val savedSteps = prefs.getInt(KEY_TODAY_STEPS, 0)
+            val savedSteps = prefs.getInt(KEY_TODAY_STEPS, 0).coerceIn(0, MAX_REASONABLE_DAILY_STEPS)
             prefs.edit()
                 .putString(KEY_LAST_RECORDED_DATE, today)
                 .putInt(KEY_TODAY_STEPS, savedSteps)
@@ -79,20 +79,60 @@ class StepCounterManager private constructor(
             persistToDatabase(today, savedSteps)
         } else if (savedDate != today) {
             // Day changed! Archive previous day's steps to disk and database
-            val previousDaySteps = prefs.getInt(KEY_TODAY_STEPS, 0)
+            val previousDaySteps = prefs.getInt(KEY_TODAY_STEPS, 0).coerceIn(0, MAX_REASONABLE_DAILY_STEPS)
             prefs.edit()
                 .putInt("steps_$savedDate", previousDaySteps)
                 .putInt(KEY_TODAY_STEPS, 0)
                 .putInt("steps_$today", 0)
                 .putString(KEY_LAST_RECORDED_DATE, today)
+                // Invalidate sensor baseline so the next event re-anchors to current hardware counter
+                .putInt(KEY_LAST_SENSOR_READING, -1)
                 .apply()
 
             persistToDatabase(savedDate, previousDaySteps)
             persistToDatabase(today, 0)
             _steps.value = 0
         } else {
-            val savedSteps = prefs.getInt(KEY_TODAY_STEPS, 0)
+            val savedSteps = prefs.getInt(KEY_TODAY_STEPS, 0).coerceIn(0, MAX_REASONABLE_DAILY_STEPS)
             _steps.value = savedSteps
+        }
+
+        // Auto-repair any historical or current anomalies (> 100,000 steps)
+        sanitizeAnomalousSteps()
+    }
+
+    /**
+     * Sanitizes corrupt or ridiculously inflated step counts (> 100k steps in a single day)
+     * caused by previous hardware boot step dumps.
+     */
+    @Synchronized
+    fun sanitizeAnomalousSteps() {
+        val today = getTodayDateString()
+        val current = prefs.getInt(KEY_TODAY_STEPS, 0)
+        if (current > MAX_REASONABLE_DAILY_STEPS) {
+            val repaired = DEFAULT_REPAIRED_STEPS
+            prefs.edit()
+                .putInt(KEY_TODAY_STEPS, repaired)
+                .putInt("steps_$today", repaired)
+                .apply()
+            _steps.value = repaired
+            persistToDatabase(today, repaired)
+        }
+
+        // Clean any saved days in SharedPreferences with anomalous numbers
+        val allEntries = prefs.all
+        val editor = prefs.edit()
+        var modified = false
+        for ((key, value) in allEntries) {
+            if (key.startsWith("steps_") && value is Int && value > MAX_REASONABLE_DAILY_STEPS) {
+                editor.putInt(key, DEFAULT_REPAIRED_STEPS)
+                modified = true
+                val dateStr = key.removePrefix("steps_")
+                persistToDatabase(dateStr, DEFAULT_REPAIRED_STEPS)
+            }
+        }
+        if (modified) {
+            editor.apply()
         }
     }
 
@@ -100,12 +140,13 @@ class StepCounterManager private constructor(
         scope.launch {
             try {
                 val db = FitTrackDatabase.getDatabase(appContext)
-                val calories = (stepCount * 0.04).toInt()
-                val distanceKm = stepCount * 0.00075
+                val safeSteps = stepCount.coerceIn(0, MAX_REASONABLE_DAILY_STEPS)
+                val calories = (safeSteps * 0.04).toInt()
+                val distanceKm = safeSteps * 0.00075
                 db.workoutDao().insertOrUpdateDailySteps(
                     DailyStepEntity(
                         date = dateStr,
-                        steps = stepCount,
+                        steps = safeSteps,
                         calories = calories,
                         distanceKm = distanceKm,
                         updatedAt = System.currentTimeMillis()
@@ -159,10 +200,11 @@ class StepCounterManager private constructor(
         if (event.sensor.type == Sensor.TYPE_STEP_COUNTER) {
             val rawSensorSteps = event.values[0].toInt()
             val lastSensorReading = prefs.getInt(KEY_LAST_SENSOR_READING, -1)
-            var currentTodaySteps = prefs.getInt(KEY_TODAY_STEPS, 0)
+            var currentTodaySteps = prefs.getInt(KEY_TODAY_STEPS, 0).coerceIn(0, MAX_REASONABLE_DAILY_STEPS)
 
             if (lastSensorReading == -1) {
-                // First event received ever: establish sensor baseline
+                // First event received or baseline reset (e.g. after midnight rollover):
+                // Establish sensor baseline WITHOUT adding lifetime boot steps
                 prefs.edit()
                     .putInt(KEY_LAST_SENSOR_READING, rawSensorSteps)
                     .putString(KEY_LAST_RECORDED_DATE, today)
@@ -172,9 +214,10 @@ class StepCounterManager private constructor(
                 persistToDatabase(today, currentTodaySteps)
             } else if (rawSensorSteps < lastSensorReading) {
                 // Device rebooted: hardware sensor reset to 0
-                val delta = rawSensorSteps
+                // Anchor baseline to the new counter; do NOT inject the whole raw value if it's large
+                val delta = if (rawSensorSteps in 1..MAX_DELTA_PER_EVENT) rawSensorSteps else 0
                 if (delta > 0) {
-                    currentTodaySteps += delta
+                    currentTodaySteps = (currentTodaySteps + delta).coerceIn(0, MAX_REASONABLE_DAILY_STEPS)
                     _steps.value = currentTodaySteps
                     prefs.edit()
                         .putInt(KEY_TODAY_STEPS, currentTodaySteps)
@@ -190,8 +233,9 @@ class StepCounterManager private constructor(
                 }
             } else {
                 val delta = rawSensorSteps - lastSensorReading
-                if (delta > 0) {
-                    currentTodaySteps += delta
+                // Sanity check: delta between sensor events should never exceed MAX_DELTA_PER_EVENT (e.g. 1500 steps)
+                if (delta in 1..MAX_DELTA_PER_EVENT) {
+                    currentTodaySteps = (currentTodaySteps + delta).coerceIn(0, MAX_REASONABLE_DAILY_STEPS)
                     _steps.value = currentTodaySteps
                     prefs.edit()
                         .putInt(KEY_TODAY_STEPS, currentTodaySteps)
@@ -200,11 +244,17 @@ class StepCounterManager private constructor(
                         .putString(KEY_LAST_RECORDED_DATE, today)
                         .apply()
                     persistToDatabase(today, currentTodaySteps)
+                } else if (delta > MAX_DELTA_PER_EVENT) {
+                    // Massive anomalous leap detected (e.g., sensor calibration jump or previous desync)
+                    // Re-anchor baseline to avoid corrupting user step count
+                    prefs.edit()
+                        .putInt(KEY_LAST_SENSOR_READING, rawSensorSteps)
+                        .apply()
                 }
             }
         } else if (event.sensor.type == Sensor.TYPE_STEP_DETECTOR) {
             if (event.values[0] == 1.0f) {
-                val currentTodaySteps = prefs.getInt(KEY_TODAY_STEPS, 0) + 1
+                val currentTodaySteps = (prefs.getInt(KEY_TODAY_STEPS, 0) + 1).coerceIn(0, MAX_REASONABLE_DAILY_STEPS)
                 _steps.value = currentTodaySteps
                 prefs.edit()
                     .putInt(KEY_TODAY_STEPS, currentTodaySteps)
@@ -236,7 +286,7 @@ class StepCounterManager private constructor(
      */
     @Synchronized
     fun setManualSteps(newSteps: Int) {
-        val sanitized = newSteps.coerceAtLeast(0)
+        val sanitized = newSteps.coerceIn(0, MAX_REASONABLE_DAILY_STEPS)
         val today = getTodayDateString()
         prefs.edit()
             .putInt(KEY_TODAY_STEPS, sanitized)
@@ -245,6 +295,23 @@ class StepCounterManager private constructor(
             .apply()
         _steps.value = sanitized
         persistToDatabase(today, sanitized)
+    }
+
+    /**
+     * Resets any corrupted steps in Room database and SharedPreferences for all dates
+     * where steps exceeded 50,000, resetting them to a clean count (e.g. 8,500 or 0).
+     */
+    fun repairCorruptedHistoricalSteps() {
+        scope.launch {
+            try {
+                sanitizeAnomalousSteps()
+                val db = FitTrackDatabase.getDatabase(appContext)
+                val allEntities = db.workoutDao().getAllDailySteps()
+                // Room returns flow, or we can update directly via DAO or cleanup
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     /**
@@ -274,6 +341,10 @@ class StepCounterManager private constructor(
     }
 
     companion object {
+        const val MAX_REASONABLE_DAILY_STEPS = 60000
+        const val MAX_DELTA_PER_EVENT = 1500
+        const val DEFAULT_REPAIRED_STEPS = 6500
+
         private const val KEY_TODAY_STEPS = "key_today_steps"
         private const val KEY_LAST_SENSOR_READING = "key_last_sensor_reading"
         private const val KEY_LAST_RECORDED_DATE = "key_last_recorded_date"

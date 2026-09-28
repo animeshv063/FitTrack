@@ -78,6 +78,17 @@ interface WorkoutDao {
     @Query("SELECT * FROM daily_steps ORDER BY date DESC")
     fun getAllDailySteps(): Flow<List<DailyStepEntity>>
 
+    @Query("SELECT * FROM daily_steps")
+    suspend fun getAllDailyStepsDirect(): List<DailyStepEntity>
+
+    @Query("UPDATE daily_steps SET steps = :cappedSteps, calories = :cappedCalories, distanceKm = :cappedDistance WHERE steps > :threshold")
+    suspend fun sanitizeCorruptedStepRecords(
+        threshold: Int = 60000,
+        cappedSteps: Int = 6500,
+        cappedCalories: Int = 260,
+        cappedDistance: Double = 4.875
+    )
+
     @Query("DELETE FROM daily_steps WHERE date = :date")
     suspend fun deleteDailyStepsForDate(date: String)
 

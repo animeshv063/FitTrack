@@ -78,6 +78,7 @@ class WorkoutViewModel(
 
     /**
      * Checks if midnight has passed and ensures step and exercise state are synced.
+     * Also automatically repairs any legacy corrupted or inflated step records.
      */
     fun checkAndPerformDailyRollover(context: Context) {
         viewModelScope.launch {
@@ -89,6 +90,19 @@ class WorkoutViewModel(
                 repository.resetUncompletedExercises()
             }
             prefs.edit().putString("last_active_workout_date", today).apply()
+            stepCounterManager.loadPersistedSteps()
+            // Sanitize Room database historical records
+            repository.sanitizeCorruptedStepRecords()
+        }
+    }
+
+    /**
+     * Repairs and sanitizes any corrupt step data across database and memory.
+     */
+    fun repairCorruptedStepData() {
+        viewModelScope.launch {
+            repository.sanitizeCorruptedStepRecords()
+            stepCounterManager.sanitizeAnomalousSteps()
             stepCounterManager.loadPersistedSteps()
         }
     }

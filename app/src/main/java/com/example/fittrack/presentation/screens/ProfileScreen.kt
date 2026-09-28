@@ -183,6 +183,7 @@ fun ProfileScreen(
 
     // Multi-Step Confirmation Dialogs for Reset
     var showResetProfileDialog by remember { mutableStateOf(false) }
+    var showResetStepsDialog by remember { mutableStateOf(false) }
     var showResetAllDataConfirmDialog by remember { mutableStateOf(false) }
 
     GlowingBackground {
@@ -716,8 +717,20 @@ fun ProfileScreen(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(CardDarkElevated, RoundedCornerShape(14.dp))
+                                .border(1.dp, CardBorderWhite, RoundedCornerShape(14.dp))
+                                .clickable { showResetStepsDialog = true }
+                                .padding(vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = "Reset Step History", color = DangerRed, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                        }
+
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -727,7 +740,7 @@ fun ProfileScreen(
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(text = "Reset Profile Info", color = DangerRed, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                            Text(text = "Reset Profile Info", color = DangerRed, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                         }
 
                         Box(
@@ -739,7 +752,7 @@ fun ProfileScreen(
                                 .padding(vertical = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(text = "Erase All History", color = DangerRed, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                            Text(text = "Erase All", color = DangerRed, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                         }
                     }
                 }
@@ -1637,6 +1650,41 @@ fun ProfileScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showResetProfileDialog = false }) {
+                    Text("Cancel", color = TextGray)
+                }
+            }
+        )
+    }
+
+    // Reset Step History Dialog (Cleans and repairs step anomalies)
+    if (showResetStepsDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetStepsDialog = false },
+            containerColor = CardDark,
+            titleContentColor = TextWhite,
+            textContentColor = TextSilver,
+            icon = { Icon(imageVector = Icons.Rounded.Warning, contentDescription = null, tint = DangerRed) },
+            title = { Text("Reset Step History & Repair?", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("This will calibrate and reset your pedometer daily steps and fix any inflated step entries.", color = TextWhite)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("All workout logs, exercise weights, and profile data will remain safe and untouched.", color = TextGray, fontSize = 12.sp)
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.updateSteps(0)
+                        viewModel.repairCorruptedStepData()
+                        showResetStepsDialog = false
+                    }
+                ) {
+                    Text("Reset Steps Now", color = DangerRed, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetStepsDialog = false }) {
                     Text("Cancel", color = TextGray)
                 }
             }
