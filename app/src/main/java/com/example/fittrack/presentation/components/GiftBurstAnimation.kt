@@ -2,9 +2,7 @@ package com.example.fittrack.presentation.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -40,7 +38,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.example.fittrack.presentation.theme.CardBorderActive
+import androidx.compose.ui.window.DialogProperties
 import com.example.fittrack.presentation.theme.CardDark
 import com.example.fittrack.presentation.theme.CardDarkElevated
 import com.example.fittrack.presentation.theme.TextGray

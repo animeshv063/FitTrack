@@ -1727,6 +1727,15 @@ fun ProfileScreen(
             }
         )
     }
+
+    // Goal Achieved Celebration Burst Dialog
+    celebratingGoal?.let { goal ->
+        GiftBurstDialog(
+            goalTitle = goal.title,
+            goalTarget = "${goal.targetValue} ${goal.unit}",
+            onDismiss = { celebratingGoal = null }
+        )
+    }
 }
 
 private fun saveCroppedProfileImage(
